@@ -92,6 +92,17 @@ nav button:disabled{opacity:.35}
 /* Hojas */
 .wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
 .wrap[hidden]{display:none}
+.wrap.center{align-items:center;padding:18px}
+.wrap.center .sheet{border-radius:18px;max-width:420px}
+.equ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0}
+.equ-grid button{padding:.6rem .25rem;font-size:.78rem;border:2px solid var(--line);background:var(--bg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.equ-grid button.sel{border-color:var(--brass);background:var(--panel);font-weight:800}
+.turnode{text-align:center;padding:6px 0 2px}
+.turnode .eq{display:inline-block;padding:.4rem 1.2rem;border-radius:999px;color:#fff;font-weight:800;font-size:1.2rem;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.turnode p{margin:.6rem 0 0;font-size:.92rem}
+.dato{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.dato b{text-align:right}
+.dato small{display:block;color:var(--muted);font-weight:400}
 .sheet{background:var(--panel);width:100%;max-width:640px;max-height:86%;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px))}
 .sheet h2{font-weight:800;font-size:1.35rem;margin:0 0 8px}
 .sheet h3{font-weight:700;font-size:.95rem;margin:16px 0 6px;color:var(--muted)}

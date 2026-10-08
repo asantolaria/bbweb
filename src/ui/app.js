@@ -22,6 +22,7 @@ import { falta } from '../engine/falta.js';
 import {
   prePartido, elegirSaque, desplegar, validarDespliegue, confirmarDespliegue,
   patada, moverEnEvento, terminarEvento, recepcionLibre, terminarTurno, comprobarTouchdown,
+  TABLA_PATADA,
 } from '../engine/secuencia.js';
 import { aEnlace, desdeEnlace } from '../enlace.js';
 
@@ -30,7 +31,13 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
 let E = null;                                    // estado del partido (motor)
-let ui = { sel: null, modo: null, hoja: null, decision: null };
+let ui = {
+  sel: null, modo: null, hoja: null, decision: null,
+  inicio: { a: 'human', b: 'black_orc' },        // selección de la pantalla de inicio
+  decisorVisto: null,                            // a quién se le mostró ya el «te toca»
+  eventoInfo: null,                              // resumen del último evento de patada
+  formacion: {},                                 // última formación aplicada por equipo
+};
 let undoStack = [];
 let enCurso = false;                             // evita dobles toques durante una acción
 
@@ -40,7 +47,8 @@ const guardar = () => { try { localStorage.setItem(KEY, JSON.stringify(E)); } ca
 function deshacer() {
   if (!undoStack.length) return toast('Nada que deshacer.');
   E = JSON.parse(undoStack.pop());
-  ui = { sel: null, modo: null, hoja: null, decision: null };
+  ui.sel = null; ui.modo = null; ui.hoja = null; ui.decision = null;
+  ui.decisorVisto = quienDecide();               // deshacer no es un cambio de manos
   guardar(); render();
 }
 
@@ -149,6 +157,37 @@ function opcionesMotor(decidir) {
   };
 }
 
+/* ---------- de quién es el turno de decidir ---------- */
+
+function quienDecide() {
+  if (!E) return null;
+  if (E.pendiente) return E.pendiente.equipo;
+  switch (E.fase) {
+    case 'eleccion_saque': return E.ganadorSorteo;
+    case 'despliegue_kicker': return E.kicker;
+    case 'despliegue_receiver': return 1 - E.kicker;
+    case 'patada': return E.kicker;
+    case 'recepcion_libre': return 1 - E.kicker;
+    case 'turno': return E.activo;
+    default: return null;
+  }
+}
+
+function tareaActual() {
+  if (E.pendiente) {
+    const EV = { solid_defence: 'Recoloca a tus jugadores desmarcados', quick_snap: 'Mueve una casilla a tus desmarcados', high_kick: 'Coloca a un jugador bajo el balón', blitz_event: '¡A la carga!' };
+    return EV[E.pendiente.tipo] ?? '';
+  }
+  switch (E.fase) {
+    case 'despliegue_kicker': return 'Pateas: despliega a tus 11 (elige una formación o colócalos tocando el campo).';
+    case 'despliegue_receiver': return 'Recibes: despliega a tus 11 (elige una formación o colócalos tocando el campo).';
+    case 'patada': return 'Elige dónde pateas: toca una casilla de la mitad rival.';
+    case 'recepcion_libre': return 'Recepción libre: toca al jugador que recibirá el balón.';
+    case 'turno': return `Tu turno ${E.equipos[E.activo].turno} de 8: toca a un jugador para activarlo.`;
+    default: return '';
+  }
+}
+
 /* ---------- textos ---------- */
 
 const etiqueta = (j) => `${POSICIONES_ES[j.pos] ?? j.pos} #${j.dorsal}`;
@@ -159,6 +198,19 @@ const habilidades = (j) => j.hab.map((h) => HABILIDADES_ES[h] ?? h).join(', ') |
 const CLIMA_ES = {
   sweltering_heat: 'Calor asfixiante', very_sunny: 'Muy soleado',
   perfect_conditions: 'Clima perfecto', pouring_rain: 'Lluvia torrencial', blizzard: 'Ventisca',
+};
+const CLIMA_FX = {
+  sweltering_heat: 'D3 jugadores de cada equipo se retiran al acabar cada entrada',
+  very_sunny: '−1 a los chequeos de Pase',
+  perfect_conditions: 'sin efectos',
+  pouring_rain: '−1 a recoger, atrapar e interceptar',
+  blizzard: '−1 a Forzar la marcha; solo pases rápidos o cortos',
+};
+const EVENTO_ES = {
+  get_the_ref: 'Árbitro intimidado', time_out: '¡Tiempo muerto!', solid_defence: 'Defensa sólida',
+  high_kick: 'Patada alta', cheering_fans: 'Los hinchas animan', brilliant_coaching: 'Entrenador brillante',
+  changing_weather: 'Clima cambiante', quick_snap: 'Anticipación', blitz_event: '¡A la carga!',
+  dodgy_snack: 'Indigestión', pitch_invasion: 'Invasión de campo',
 };
 
 function lineaRegistro(ev) {
@@ -213,7 +265,8 @@ async function nuevaPartida(razaA, razaB, nombreA, nombreB) {
   E = crearPartido(A, B);
   E.fase = 'pre_partido';
   undoStack = [];
-  ui = { sel: null, modo: null, hoja: null, decision: null };
+  ui.sel = null; ui.modo = null; ui.hoja = null; ui.decision = null;
+  ui.decisorVisto = null; ui.eventoInfo = null; ui.formacion = {};
   await ejecutar((azar) => prePartido(E, { azar }));
 }
 
@@ -259,7 +312,10 @@ async function tapCell(x, y) {
     return;
   }
 
-  if (E.fase === 'patada') { await ejecutar((azar, decidir) => patada(E, x, y, { azar })); return; }
+  if (E.fase === 'patada') {
+    if (await ejecutar((azar) => patada(E, x, y, { azar }))) { prepararEventoInfo(); render(); }
+    return;
+  }
 
   if (E.pendiente) {
     if (ui.sel) {
@@ -340,15 +396,26 @@ async function act(el) {
   const d = el.dataset;
   switch (d.act) {
     case 'nueva': ui.hoja = 'inicio'; break;
-    case 'empezar': {
-      const razaA = $('selA').value, razaB = $('selB').value;
-      await nuevaPartida(razaA, razaB, $('nomA').value.trim(), $('nomB').value.trim());
+    case 'pick': ui.inicio[d.side] = d.team; render(); return;
+    case 'empezar':
+      await nuevaPartida(ui.inicio.a, ui.inicio.b, $('nomA').value.trim(), $('nomB').value.trim());
       return;
-    }
+    case 'visto':
+      // Solo el intersticial de relevo da por enterado al entrenador; cerrar el modal
+      // de un evento deja que el «te toca» aparezca a continuación.
+      if (ui.hoja === 'turno_de') ui.decisorVisto = quienDecide();
+      ui.hoja = null; ui.eventoInfo = null;
+      render(); return;
     case 'saque': await ejecutar(() => elegirSaque(E, d.v)); return;
-    case 'formacion': await ejecutar(() => aplicarFormacion(E.fase === 'despliegue_kicker' ? E.kicker : 1 - E.kicker, d.v)); return;
+    case 'formacion': {
+      const eq = E.fase === 'despliegue_kicker' ? E.kicker : 1 - E.kicker;
+      if (await ejecutar(() => aplicarFormacion(eq, d.v))) ui.formacion[eq] = d.v;
+      render(); return;
+    }
     case 'confirmar': ui.sel = null; await ejecutar(() => confirmarDespliegue(E)); return;
-    case 'centro': await ejecutar((azar) => patada(E, 7, E.kicker === 0 ? 6 : 19, { azar })); return;
+    case 'centro':
+      if (await ejecutar((azar) => patada(E, 7, E.kicker === 0 ? 6 : 19, { azar }))) { prepararEventoInfo(); render(); }
+      return;
     case 'evento_fin': ui.sel = null; await ejecutar((azar) => terminarEvento(E, { azar })); return;
     case 'accion': {
       const sel = ui.sel;
@@ -361,9 +428,8 @@ async function act(el) {
     case 'fin_activacion': ui.sel = null; ui.modo = null; await ejecutar(() => terminarAccion(E)); return;
     case 'fin_turno':
       ui.sel = null; ui.modo = null;
-      if (!(await ejecutar((azar) => terminarTurno(E, { azar })))) return;
-      if (E.fase === 'turno') ui.hoja = 'relevo';
-      render(); return;
+      await ejecutar((azar) => terminarTurno(E, { azar }));
+      return;
     case 'deshacer': deshacer(); return;
     case 'hoja': ui.hoja = d.v; break;
     case 'cerrar': ui.hoja = null; break;
@@ -386,10 +452,49 @@ async function act(el) {
   render();
 }
 
+/** Prepara el modal con el resultado del evento de patada recién tirado. */
+function prepararEventoInfo() {
+  const ev = [...E.registro].reverse().find((x) => x.tipo === 'evento_patada');
+  if (!ev) return;
+  const fila = TABLA_PATADA.filas.find((f) => f[2] === ev.evento);
+  const lineas = [];
+  if (ev.evento === 'changing_weather') {
+    lineas.push(`Clima nuevo: ${CLIMA_ES[E.clima]} (${CLIMA_FX[E.clima]}).`);
+  }
+  if (E.pendiente) {
+    lineas.push(`${E.equipos[E.pendiente.equipo].nombre} resuelve el evento antes de que caiga el balón.`);
+  }
+  if (E.fase === 'recepcion_libre') {
+    lineas.push('El balón se fue largo: recepción libre para el que recibe.');
+  }
+  ui.eventoInfo = {
+    dados: ev.dados, nombre: EVENTO_ES[ev.evento] ?? ev.evento,
+    efecto: fila?.[3] ?? '', lineas,
+  };
+  ui.hoja = 'evento_info';
+}
+
 /* ---------- render ---------- */
 
 function render() {
   if (!E) { renderInicio(); return; }
+
+  // Los modales de fase caducan cuando su fase pasa.
+  if (ui.hoja === 'previa' && E.fase !== 'eleccion_saque') ui.hoja = null;
+  if (ui.hoja === 'final' && E.fase !== 'fin') ui.hoja = null;
+
+  // Modales de fase: la previa y el final ocupan la pantalla; la cuadrícula solo
+  // cuando hace falta tocarla.
+  if (!ui.decision && !ui.hoja) {
+    if (E.fase === 'eleccion_saque') ui.hoja = 'previa';
+    else if (E.fase === 'fin') ui.hoja = 'final';
+    else {
+      // Intersticial «le toca a…» cada vez que cambia quién decide (también al abrir
+      // un enlace recibido).
+      const d = quienDecide();
+      if (d !== null && d !== ui.decisorVisto) ui.hoja = 'turno_de';
+    }
+  }
   renderTop(); renderPitch(); renderPanel(); renderNav(); renderHoja();
 }
 
@@ -465,8 +570,12 @@ function renderPitch() {
   p.innerHTML = html;
 }
 
+const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio'];
+
 function renderPanel() {
   const info = $('info'), chips = $('chips');
+  // Con un modal de fase delante, el panel calla para no duplicar botones.
+  if (MODALES_DE_FASE.includes(ui.hoja)) { info.innerHTML = ''; chips.innerHTML = ''; return; }
   const sel = ui.sel && E.jugadores[ui.sel];
   let txt = '', ch = '';
   const chip = (act, label, extra = '') => `<button data-act="${act}" ${extra}>${label}</button>`;
@@ -501,8 +610,9 @@ function renderPanel() {
       const defendiendo = eq === E.kicker;
       const orden = Object.entries(FORMACIONES)
         .sort(([, a], [, b]) => (a.lado === (defendiendo ? 'defensa' : 'ataque') ? -1 : 1) - (b.lado === (defendiendo ? 'defensa' : 'ataque') ? -1 : 1));
-      ch = chip('confirmar', 'Confirmar', problemas.length ? 'disabled' : 'class="hot"') +
-        orden.map(([k, F]) => chipV('formacion', k, F.nombre)).join('');
+      ch = orden.map(([k, F]) =>
+        chipV('formacion', k, (ui.formacion[eq] === k ? '✓ ' : '') + F.nombre, ui.formacion[eq] === k ? 'class="hot"' : '')).join('') +
+        chip('confirmar', problemas.length ? 'Faltan jugadores' : 'Confirmar ✓', problemas.length ? 'disabled' : 'class="warn"');
       ch += `<span style="flex:1"></span>` + bench(eq);
       break;
     }
@@ -604,33 +714,70 @@ function renderHoja() {
   const wrap = $('wrap'), sheet = $('sheet');
   if (!ui.hoja) { wrap.hidden = true; return; }
   wrap.hidden = false;
+  wrap.classList.toggle('center', ['previa', 'turno_de', 'evento_info', 'final', 'inicio'].includes(ui.hoja));
   const head = (t, cerrable = true) =>
     `<div class="shead"><h2>${t}</h2>${cerrable ? '<button class="x" data-act="cerrar">✕</button>' : ''}</div>`;
 
   if (ui.hoja === 'inicio') {
-    const ops = Object.keys(EQUIPOS).map((k) => `<option value="${k}">${esc(EQUIPOS_ES[k])}</option>`).join('');
+    const grid = (side) => `<div class="equ-grid">` + Object.keys(EQUIPOS).map((k) =>
+      `<button data-act="pick" data-side="${side}" data-team="${k}" class="${ui.inicio[side] === k ? 'sel' : ''}">${esc(EQUIPOS_ES[k])}</button>`,
+    ).join('') + `</div>`;
     sheet.innerHTML = head('Blood Bowl', !!E) + `
       <p style="font-size:.85rem;color:var(--muted)">Dos equipos a 1.000k con los rosters
-      iniciales. La partida se juega en este móvil o pasándose el enlace por turnos.</p>
-      <h3>Equipo local</h3>
-      <div class="row"><select id="selA" class="field">${ops}</select></div>
+      iniciales. Se juega en este móvil o pasándose el enlace por turnos.</p>
+      <h3>Equipo local</h3>${grid('a')}
       <div class="row"><input id="nomA" class="field" placeholder="Nombre (opcional)"></div>
-      <h3>Equipo visitante</h3>
-      <div class="row"><select id="selB" class="field">${ops}</select></div>
+      <h3>Equipo visitante</h3>${grid('b')}
       <div class="row"><input id="nomB" class="field" placeholder="Nombre (opcional)"></div>
       <div class="row"><button class="primary" data-act="empezar">Empezar partido</button></div>`;
-    const selB = sheet.querySelector('#selB');
-    if (selB) selB.value = 'black_orc';
     return;
   }
-  if (ui.hoja === 'relevo') {
-    const Eq = E.equipos[E.activo];
-    sheet.innerHTML = head('Cambio de turno') + `
-      <p>Le toca a <b>${esc(Eq.nombre)}</b> (turno ${Eq.turno}).</p>
-      <p style="font-size:.85rem;color:var(--muted)">Pásale el móvil… o envíale el enlace
-      con la partida dentro y que siga en el suyo.</p>
-      <div class="row"><button class="primary" data-act="enlace">Copiar enlace del turno</button></div>
-      <div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="cerrar">Seguir en este móvil</button></div>`;
+  if (ui.hoja === 'previa') {
+    const g = E.ganadorSorteo;
+    const [c] = colorEq(g);
+    sheet.innerHTML = head('Previa del partido', false) + `
+      <div class="dato"><span>Hinchas</span><b>${esc(E.equipos[0].nombre)} ${E.equipos[0].factorHinchas} · ${E.equipos[1].factorHinchas} ${esc(E.equipos[1].nombre)}</b></div>
+      <div class="dato"><span>Clima</span><b>${CLIMA_ES[E.clima]}<small>${CLIMA_FX[E.clima]}</small></b></div>
+      <div class="dato"><span>Sorteo</span><b>gana ${esc(E.equipos[g].nombre)}</b></div>
+      <div class="turnode"><span class="eq" style="background:${c}">${esc(E.equipos[g].nombre)}</span>
+      <p>decide quién empieza con el balón.</p></div>
+      <div class="row"><button class="primary" data-act="saque" data-v="recibir">Recibir el balón</button></div>
+      <div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="saque" data-v="patear">Patear (defender)</button></div>`;
+    return;
+  }
+  if (ui.hoja === 'turno_de') {
+    const d = quienDecide();
+    if (d === null) { ui.hoja = null; wrap.hidden = true; return; }
+    const [c] = colorEq(d);
+    const esTurno = E.fase === 'turno';
+    sheet.innerHTML = head(esTurno ? `Turno ${E.equipos[d].turno} de 8` : 'Cambio de manos', false) + `
+      <div class="turnode"><span class="eq" style="background:${c}">${esc(E.equipos[d].nombre)}</span>
+      <p>${esc(tareaActual())}</p></div>
+      <div class="row"><button class="primary" data-act="visto">¡A jugar!</button></div>` +
+      (esTurno || E.fase.startsWith('despliegue') ? `
+      <div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="enlace">Copiar enlace para el rival</button></div>` : '');
+    return;
+  }
+  if (ui.hoja === 'evento_info') {
+    const ev = ui.eventoInfo;
+    if (!ev) { ui.hoja = null; wrap.hidden = true; return; }
+    sheet.innerHTML = head('Evento de patada', false) + `
+      <div class="dato"><span>2D6 = ${ev.dados.join(' + ')}</span><b>${esc(ev.nombre)}</b></div>
+      <p style="font-size:.9rem">${esc(ev.efecto)}</p>` +
+      ev.lineas.map((l) => `<p style="font-size:.9rem;color:var(--muted)">${esc(l)}</p>`).join('') + `
+      <div class="row"><button class="primary" data-act="visto">Continuar</button></div>`;
+    return;
+  }
+  if (ui.hoja === 'final') {
+    const m = E.equipos.map((x) => x.marcador);
+    const ganador = m[0] === m[1] ? null : (m[0] > m[1] ? 0 : 1);
+    sheet.innerHTML = head('Final del partido', false) + `
+      <div class="turnode">
+        <p style="font-size:1.6rem;font-weight:800">${esc(E.equipos[0].nombre)} ${m[0]} – ${m[1]} ${esc(E.equipos[1].nombre)}</p>
+        <p>${ganador === null ? 'Empate: nadie presume en la taberna.' : `Victoria de ${esc(E.equipos[ganador].nombre)}.`}</p>
+      </div>
+      <div class="row"><button class="primary" data-act="nueva">Nueva partida</button></div>
+      <div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="hoja" data-v="registro">Ver las tiradas</button></div>`;
     return;
   }
   if (ui.hoja === 'registro') {
