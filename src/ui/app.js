@@ -21,6 +21,7 @@ import { pase, entrega } from '../engine/pase.js';
 import { falta } from '../engine/falta.js';
 import { lanzarCompanero } from '../engine/lanzar.js';
 import { apunalar, vomitar } from '../engine/especiales.js';
+import { puedeCurar, curarKO, curarLesion, rechazarCura } from '../engine/apotecario.js';
 import { tiene } from '../data/habilidades.js';
 import {
   prePartido, elegirSaque, desplegar, validarDespliegue, confirmarDespliegue,
@@ -207,6 +208,11 @@ const ROL_ES = {
   receptor: 'Receptor', especial: 'Especialista', grande: 'Jugador grande',
 };
 const POSTURA_ES = { de_pie: 'De pie', distraido: 'Distraído', tumbado: 'Tumbado', aturdido: 'Aturdido' };
+const LESION_ES = {
+  badly_hurt: 'Magullado (sin secuelas)', seriously_hurt: 'Apaleado (se pierde el próximo)',
+  serious_injury: 'Herida grave (mal curada + próximo)', lasting_injury: 'Herida permanente',
+  dead: 'MUERTO',
+};
 const SITUACION_ES = { reserva: 'En reservas', campo: 'En el campo', ko: 'KO', lesionado: 'Lesionado', expulsado: 'Expulsado' };
 
 /** El balón, con forma de balón (óvalo con costura y cordones). */
@@ -279,6 +285,8 @@ function lineaRegistro(ev) {
     devorado: () => `¡${ev.jugador} DEVORADO por ${ev.por}!`,
     apunalar: () => `${ev.atacante} apuñala a ${ev.victima}`,
     vomito: () => `${ev.atacante} vomita [${ev.d6}] sobre ${ev.aQuien}`,
+    apotecario: () => `apotecario: ${ev.efecto} (${ev.jugador})`,
+    apotecario_lesion: () => `el apotecario tira otra vez: ${ev.original} o ${ev.nueva}`,
   };
   return (T[ev.tipo] ?? (() => `${ev.tipo}${j ? ' ' + j : ''}${c}`))();
 }
@@ -454,6 +462,26 @@ async function act(el) {
     case 'empezar':
       await nuevaPartida(ui.inicio.a, ui.inicio.b, $('nomA').value.trim(), $('nomB').value.trim());
       return;
+    case 'apo_si': {
+      const id = ui.apoJugador;
+      ui.hoja = null; ui.apoJugador = null;
+      const herido = jugador(E, id);
+      if (herido.situacion === 'ko') await ejecutar(() => curarKO(E, id));
+      else await ejecutar((azar, decidir) => curarLesion(E, id, {
+        azar,
+        elegir: (ops) => decidir({
+          tipo: 'opciones', titulo: 'El apotecario ofrece dos diagnósticos: elige el que se queda',
+          opciones: ops.map((o) => LESION_ES[o] ?? o),
+        }),
+      }));
+      return;
+    }
+    case 'apo_no': {
+      const id = ui.apoJugador;
+      ui.hoja = null; ui.apoJugador = null;
+      await ejecutar(() => rechazarCura(E, id));
+      return;
+    }
     case 'visto':
       // Solo el intersticial de relevo da por enterado al entrenador; cerrar el modal
       // de un evento deja que el «te toca» aparezca a continuación.
@@ -536,6 +564,12 @@ function render() {
   // Los modales de fase caducan cuando su fase pasa.
   if (ui.hoja === 'previa' && E.fase !== 'eleccion_saque') ui.hoja = null;
   if (ui.hoja === 'final' && E.fase !== 'fin') ui.hoja = null;
+
+  // ¿Hay un herido con la ventana del apotecario abierta? Su entrenador decide ya.
+  if (!ui.decision && !ui.hoja && !enCurso) {
+    const herido = Object.values(E.jugadores).find((j) => j.apoVentana && puedeCurar(E, j.id));
+    if (herido) { ui.hoja = 'apotecario'; ui.apoJugador = herido.id; }
+  }
 
   // Modales de fase: la previa y el final ocupan la pantalla; la cuadrícula solo
   // cuando hace falta tocarla.
@@ -624,7 +658,7 @@ function renderPitch() {
   p.innerHTML = html;
 }
 
-const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio'];
+const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario'];
 
 /** La ficha del jugador seleccionado: quién es, cómo está y qué sabe hacer. */
 function fichaJugador(j) {
@@ -800,7 +834,7 @@ function renderHoja() {
   const wrap = $('wrap'), sheet = $('sheet');
   if (!ui.hoja) { wrap.hidden = true; return; }
   wrap.hidden = false;
-  wrap.classList.toggle('center', ['previa', 'turno_de', 'evento_info', 'final', 'inicio'].includes(ui.hoja));
+  wrap.classList.toggle('center', ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario'].includes(ui.hoja));
   const head = (t, cerrable = true) =>
     `<div class="shead"><h2>${t}</h2>${cerrable ? '<button class="x" data-act="cerrar">✕</button>' : ''}</div>`;
 
@@ -852,6 +886,22 @@ function renderHoja() {
       <p style="font-size:.9rem">${esc(ev.efecto)}</p>` +
       ev.lineas.map((l) => `<p style="font-size:.9rem;color:var(--muted)">${esc(l)}</p>`).join('') + `
       <div class="row"><button class="primary" data-act="visto">Continuar</button></div>`;
+    return;
+  }
+  if (ui.hoja === 'apotecario') {
+    const j = E.jugadores[ui.apoJugador];
+    if (!j) { ui.hoja = null; wrap.hidden = true; return; }
+    const [c] = colorEq(j.equipo);
+    const que = j.situacion === 'ko'
+      ? 'Está KO. El apotecario puede dejarlo <b>Aturdido en su casilla</b>' + (j.koPorPublico ? ' (del público se vuelve a Reservas)' : '') + '.'
+      : `Lesión: <b>${esc(LESION_ES[j.lesion] ?? j.lesion)}</b>. El apotecario tira otra vez y eliges cuál se aplica (Magullado = vuelve a Reservas).`;
+    sheet.innerHTML = head('Apotecario', false) + `
+      <div class="turnode"><span class="eq" style="background:${c}">${esc(E.equipos[j.equipo].nombre)}</span></div>
+      ${fichaJugador(j)}
+      <p style="font-size:.9rem">${que}</p>
+      <p style="font-size:.8rem;color:var(--muted)">Solo hay uno y solo actúa una vez por partido.</p>
+      <div class="row"><button class="primary" data-act="apo_si">Usar el apotecario</button></div>
+      <div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="apo_no">Guardarlo</button></div>`;
     return;
   }
   if (ui.hoja === 'final') {

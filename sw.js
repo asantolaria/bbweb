@@ -3,7 +3,7 @@
 // Estrategia stale-while-revalidate: se sirve de la caché al instante y se refresca
 // por detrás, así una partida en el campo no depende de la cobertura y las mejoras
 // llegan en la siguiente apertura. Subir VERSION invalida la caché entera.
-const VERSION = 'bbweb-v4';
+const VERSION = 'bbweb-v5';
 
 const APP = [
   './', './index.html', './manifest.webmanifest',

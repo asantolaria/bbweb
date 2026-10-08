@@ -113,6 +113,9 @@ export function aplicarResultadoHeridas(estado, j, heridas, { azar, porElPublico
       else { j.postura = 'aturdido'; resultado.final = 'aturdido'; }
       break;
     case 'ko':
+      j.ultimaCasilla = { x: j.x, y: j.y };
+      j.koPorPublico = porElPublico;
+      j.apoVentana = true;               // el apotecario puede actuar de inmediato
       j.situacion = 'ko'; j.x = j.y = -1; resultado.final = 'ko';
       break;
     case 'casualty': {
@@ -125,6 +128,8 @@ export function aplicarResultadoHeridas(estado, j, heridas, { azar, porElPublico
           return { ...resultado, final: 'regenerado' };
         }
       }
+      j.ultimaCasilla = { x: j.x, y: j.y };
+      j.apoVentana = true;
       j.situacion = 'lesionado'; j.x = j.y = -1; resultado.final = 'lesionado';
       if (heridas.automatico) {
         resultado.lesion = { resultado: heridas.automatico, automatico: true };
@@ -133,6 +138,7 @@ export function aplicarResultadoHeridas(estado, j, heridas, { azar, porElPublico
         anotar(estado, 'lesion', { jugador: j.id, tirada: les });
         resultado.lesion = les;
       }
+      j.lesion = resultado.lesion.resultado;
       break;
     }
   }

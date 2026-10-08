@@ -427,6 +427,9 @@ export function finDeDrive(estado, { azar }) {
     anotar(estado, 'recuperacion_ko', { jugador: j.id, d6: d.valor, vuelve: d.valor >= 4 });
   }
 
+  // La ventana del apotecario es inmediata: al acabar la entrada, se cerró.
+  for (const j of Object.values(estado.jugadores)) j.apoVentana = false;
+
   // Todos los del campo vuelven al banquillo; el siguiente drive se despliega de cero.
   const anoto = estado.touchdownPendiente;
   estado.touchdownPendiente = null;
