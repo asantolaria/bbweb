@@ -197,9 +197,13 @@ export function levantarse(estado, { azar } = {}) {
  * `alFallar(tipo, chequeo)` → true para repetir con reroll de equipo (lo decide la capa
  * de turno o la UI); las repeticiones de habilidad (Esquivar) se aplican solas.
  */
+/** Acciones que incluyen movimiento; el resto (Placaje, Apuñalar, Vómito…) no se mueve. */
+const CON_MOVIMIENTO = new Set(['move', 'blitz', 'pass', 'handoff', 'foul', 'secure', 'ttm']);
+
 export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false, ...opcionesPaso } = {}) {
   const a = estado.activacion;
   if (!a) throw new Error('No hay activación en curso.');
+  if (!CON_MOVIMIENTO.has(a.accion)) throw new Error(`La acción ${a.accion} no incluye movimiento.`);
   const j = jugador(estado, a.jugador);
   if (j.postura === 'tumbado') throw new Error(`${j.id} debe levantarse primero.`);
   if (!enCampo(destinoX, destinoY)) throw new Error('Fuera del campo.');

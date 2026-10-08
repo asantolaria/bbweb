@@ -31,8 +31,8 @@ son calculables desde el estado, a diferencia de las habilidades.
 - **Perseguir (Shadowing)** del Camaleón: movimiento reactivo del rival; pendiente.
 - **Atento al balón / Patada alta con movimiento**: el evento 5 coloca al jugador bajo el
   balón, pero el movimiento de hasta 3 casillas tras el desvío (On the Ball) no está.
-- **Lanzar compañero**: la única acción que falta del motor (Humanoide bala, Siempre
-  hambriento, aterrizajes). Los cuatro equipos con Ogro/Troll/Kroxigor la esperan.
+- **Sustituir el placaje de una Penetración por Apuñalar o Proyectil de vómito**: las
+  acciones existen sueltas; su variante dentro del Blitz queda pendiente.
 - **Atento al balón (On the Ball)**: el movimiento de hasta 3 casillas del rival antes
   del chequeo de pase es interactivo y no está cableado; la intercepción normal sí.
 - **Nervios de acero en la intercepción**: el texto del repo lo limita a «atrapar» y

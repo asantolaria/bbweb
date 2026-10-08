@@ -93,9 +93,19 @@ export function resolverSuelo(estado, j, {
     anotar(estado, 'heridas', { jugador: j.id, tirada: heridas });
   }
 
+  const aplicado = aplicarResultadoHeridas(estado, j, heridas, { azar, porElPublico });
+  return { ...resultado, ...aplicado };
+}
+
+/**
+ * Aplica una tirada de Heridas ya hecha (con Cabeza dura, Regeneración y la tabla de
+ * lesiones) y deja al jugador donde toque. La usan los derribos y también las heridas
+ * directas sin derribo (Apuñalar, Proyectil de vómito, aterrizajes forzosos).
+ */
+export function aplicarResultadoHeridas(estado, j, heridas, { azar, porElPublico = false }) {
   heridas = aplicarCabezaDura(heridas, j);
   if (heridas.ajuste) anotar(estado, 'cabeza_dura', { jugador: j.id });
-  resultado.heridas = heridas;
+  const resultado = { heridas, final: j.postura };
 
   switch (heridas.resultado) {
     case 'stunned':
@@ -127,4 +137,25 @@ export function resolverSuelo(estado, j, {
     }
   }
   return resultado;
+}
+
+/**
+ * Herida directa sin derribo (Apuñalar, Proyectil de vómito): armadura SIN
+ * modificadores y, si rompe, la cadena de heridas. El balón se suelta solo si el
+ * jugador acaba en el suelo.
+ */
+export function heridaDirecta(estado, j, { azar }) {
+  const arm = tiradaArmadura({ ar: j.perfil.ar, azar });
+  anotar(estado, 'armadura', { jugador: j.id, tirada: arm });
+  if (!arm.rota) return { armadura: arm, final: j.postura };
+
+  // Con la armadura rota el jugador acaba en el suelo en todos los resultados: el
+  // balón se suelta ANTES de aplicar la herida (un KO se va del campo y el rebote
+  // debe salir de su casilla, no del banquillo).
+  const llevaba = estado.balon?.portador === j.id;
+  if (llevaba) soltarBalon(estado, j, { azar });
+  const h = tiradaHeridas({ escurridizo: tiene(j.hab, 'stunty'), azar });
+  anotar(estado, 'heridas', { jugador: j.id, tirada: h });
+  const r = aplicarResultadoHeridas(estado, j, h, { azar });
+  return { armadura: arm, ...r, llevabaBalon: llevaba };
 }

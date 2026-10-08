@@ -19,6 +19,9 @@ import { activar, paso, saltar, levantarse, terminarAccion } from '../engine/mov
 import { placar, placarEnPenetracion } from '../engine/placaje.js';
 import { pase, entrega } from '../engine/pase.js';
 import { falta } from '../engine/falta.js';
+import { lanzarCompanero } from '../engine/lanzar.js';
+import { apunalar, vomitar } from '../engine/especiales.js';
+import { tiene } from '../data/habilidades.js';
 import {
   prePartido, elegirSaque, desplegar, validarDespliegue, confirmarDespliegue,
   patada, moverEnEvento, terminarEvento, recepcionLibre, terminarTurno, comprobarTouchdown,
@@ -32,7 +35,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&
 
 let E = null;                                    // estado del partido (motor)
 let ui = {
-  sel: null, modo: null, hoja: null, decision: null,
+  sel: null, modo: null, hoja: null, decision: null, ttmCompanero: null,
   inicio: { a: 'human', b: 'black_orc' },        // selección de la pantalla de inicio
   decisorVisto: null,                            // a quién se le mostró ya el «te toca»
   eventoInfo: null,                              // resumen del último evento de patada
@@ -267,6 +270,15 @@ function lineaRegistro(ev) {
     falta: () => `${ev.atacante} comete falta sobre ${ev.victima} → ${ev.resultado}`,
     arbitro: () => `¡el árbitro ve la falta de ${ev.jugador}!`,
     soborno: () => `soborno [${ev.d6}] → ${ev.funciona ? 'funciona' : 'perdido'}`,
+    lanzar_companero: () => `${ev.lanzador} lanza a ${ev.lanzado} (${ev.alcance})`,
+    lanzamiento: () => `lanzamiento${c}${porques}`,
+    vuelo: () => `vuela hasta (${ev.caeEn[0] + 1},${ev.caeEn[1] + 1})`,
+    aterrizaje: () => `${j} aterriza${c}${porques}`,
+    aterrizaje_forzoso: () => `¡${ev.lanzado} aplasta a ${ev.sobre}!`,
+    siempre_hambriento: () => `al Troll le suenan las tripas [${ev.d6}]`,
+    devorado: () => `¡${ev.jugador} DEVORADO por ${ev.por}!`,
+    apunalar: () => `${ev.atacante} apuñala a ${ev.victima}`,
+    vomito: () => `${ev.atacante} vomita [${ev.d6}] sobre ${ev.aQuien}`,
   };
   return (T[ev.tipo] ?? (() => `${ev.tipo}${j ? ' ' + j : ''}${c}`))();
 }
@@ -397,6 +409,25 @@ async function tapCell(x, y) {
     await ejecutar((azar) => entrega(E, j.id, { azar }));
     return;
   }
+  if (j && a.accion === 'stab' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
+    await ejecutar((azar) => apunalar(E, j.id, { azar }));
+    return;
+  }
+  if (j && a.accion === 'vomit' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
+    await ejecutar((azar) => vomitar(E, j.id, { azar }));
+    return;
+  }
+  if (a.accion === 'ttm') {
+    // Primero se toca al compañero (Humanoide bala adyacente); luego la casilla destino.
+    if (j && j.equipo === yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y) && tiene(j.hab, 'right_stuff')) {
+      ui.ttmCompanero = j.id; render(); return;
+    }
+    if (!j && ui.ttmCompanero) {
+      const companero = ui.ttmCompanero; ui.ttmCompanero = null;
+      await ejecutar((azar, decidir) => lanzarCompanero(E, companero, x, y, { azar, opciones: opcionesMotor(decidir) }));
+      return;
+    }
+  }
   if (!j) {
     const dist = Math.max(Math.abs(x - yo.x), Math.abs(y - yo.y));
     await ejecutar((azar, decidir) => {
@@ -448,7 +479,7 @@ async function act(el) {
       return;
     }
     case 'lanzar': ui.modo = 'pase_objetivo'; render(); return;
-    case 'fin_activacion': ui.sel = null; ui.modo = null; await ejecutar(() => terminarAccion(E)); return;
+    case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; await ejecutar(() => terminarAccion(E)); return;
     case 'fin_turno':
       ui.sel = null; ui.modo = null;
       await ejecutar((azar) => terminarTurno(E, { azar }));
@@ -691,11 +722,19 @@ function renderPanel() {
       if (a) {
         const yo = jugador(E, a.jugador);
         const restante = yo.perfil.mv - a.mvGastado;
-        const ACCION_ES = { move: 'Movimiento', blitz: 'Penetración', block: 'Placaje', pass: 'Pase', handoff: 'Entrega', foul: 'Falta', secure: 'Asegurar el balón' };
+        const ACCION_ES = { move: 'Movimiento', blitz: 'Penetración', block: 'Placaje', pass: 'Pase', handoff: 'Entrega', foul: 'Falta', secure: 'Asegurar el balón', ttm: 'Lanzar compañero', stab: 'Apuñalar', vomit: 'Proyectil de vómito' };
         txt = `<b>${esc(etiqueta(yo))}</b> — ${ACCION_ES[a.accion] ?? a.accion} · MV ${Math.max(0, restante)}${a.rushUsados ? ` · rush ${a.rushUsados}/2` : ''}` +
           (ui.modo === 'pase_objetivo' ? ' · <b>toca la casilla del pase</b>' : '') +
           `<span class="skills">${esc(habilidades(yo))}</span>`;
         if (a.accion === 'pass' && E.balon?.portador === yo.id) ch += chip('lanzar', 'Lanzar', 'class="hot"');
+        if (a.accion === 'ttm') {
+          txt += `<span class="skills">${ui.ttmCompanero
+            ? `Lanzas a ${esc(etiqueta(jugador(E, ui.ttmCompanero)))}: toca la casilla destino (cerca).`
+            : 'Toca al compañero con Humanoide bala que vas a lanzar.'}</span>`;
+        }
+        if (a.accion === 'stab' || a.accion === 'vomit') {
+          txt += '<span class="skills">Toca al rival adyacente que lo va a sufrir.</span>';
+        }
         if (a.accion === 'blitz' && !a.placajeHecho) {
           const O = jugador(E, a.objetivoBlitz);
           if (sonAdyacentes(yo.x, yo.y, O.x, O.y)) txt += '<span class="skills">Toca al objetivo para placar.</span>';
@@ -710,7 +749,10 @@ function renderPanel() {
           (puede('pass') ? chipV('accion', 'pass', 'Pase') : '') +
           (puede('handoff') ? chipV('accion', 'handoff', 'Entrega') : '') +
           (puede('foul') ? chipV('accion', 'foul', 'Falta') : '') +
-          (puede('secure') && E.balon && !E.balon.portador ? chipV('accion', 'secure', 'Asegurar') : '');
+          (puede('secure') && E.balon && !E.balon.portador ? chipV('accion', 'secure', 'Asegurar') : '') +
+          (puede('ttm') && tiene(sel.hab, 'throw_team_mate') ? chipV('accion', 'ttm', 'Lanzar comp.') : '') +
+          (tiene(sel.hab, 'stab') ? chipV('accion', 'stab', 'Apuñalar') : '') +
+          (tiene(sel.hab, 'projectile_vomit') ? chipV('accion', 'vomit', 'Vomitar') : '');
       } else if (sel) {
         txt = fichaJugador(sel);
         ch = chip('fin_turno', 'Fin de turno');
