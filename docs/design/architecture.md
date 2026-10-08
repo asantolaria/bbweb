@@ -118,3 +118,65 @@ Google — que degradan a `system-ui` y `Arial Narrow` si no cargan. Si el archi
 publica en un entorno con CSP estricta (por ejemplo como Artifact de Claude), las fuentes
 se bloquean y se usa el fallback; el resto funciona igual. Para evitarlo habría que
 empotrar las fuentes como `data:` URI, lo que multiplicaría el tamaño del archivo.
+
+---
+
+# En construcción: el motor de reglas
+
+El `index.html` de arriba es la **mesa** actual: mueve fichas y tira dados, pero no
+arbitra. A partir del 2026-10-08 se está construyendo junto a él un **motor de reglas**
+que sí lo hará (ver [PRD](prd.md)). Hasta que esté terminado conviven los dos.
+
+```
+src/
+├── engine/        motor puro: ni DOM, ni localStorage, ni nombres propios
+│   ├── dice.js       dados y chequeos con modificadores justificados
+│   └── heridas.js    armadura, heridas, lesiones y permanentes
+├── data/          perfiles de equipo y, aparte, los nombres de pantalla
+└── enlace.js      serializar la partida dentro de la URL (ADR 001)
+test/              un fichero por módulo; `npm test` (node --test, sin dependencias)
+```
+
+## Tres reglas de la casa
+
+**Ningún modificador sin motivo.** `chequeo()` lanza una excepción si recibe un
+modificador sin el campo `porque`. No es una comprobación defensiva de cortesía: el PRD
+exige que cualquier tirada se pueda justificar en pantalla, así que un modificador que no
+sabe explicarse no debe llegar a producción.
+
+```js
+chequeo({ objetivo: 3, mods: [
+  { v: -1, porque: 'Línea Orco marca el destino' },
+  { v: -1, porque: 'Blitzer Orco marca el destino' },
+]})  // → necesario: 5
+```
+
+**Identificadores en inglés, prosa en castellano.** Las claves de datos (`'badly_hurt'`,
+`'human_blitzer'`, `'block'`) van en inglés porque es lo que usan todas las fuentes de
+datos y lo que mantiene la capa de nombres separable ([ADR 002](adr-002-nombres-separados-del-motor.md)).
+El código, los comentarios y los tests van en castellano.
+
+**El azar se inyecta.** Toda función que tire dados acepta un parámetro `azar`. En
+producción es `azarReal` (criptográfico, con rechazo del resto para no sesgar las caras);
+en los tests es un dado guionizado, lo que permite comprobar **cada banda de cada tabla**
+en sus bordes exactos en vez de muestrear al azar.
+
+## Dónde buscar cada regla
+
+| Regla | Módulo | Fuente |
+|---|---|---|
+| 1 natural falla, 6 natural acierta, tope en 6 sin suelo | `dice.js` | `tablas/fundamentos-y-principios.md` §6 |
+| Armadura, Heridas, Lesiones, permanentes, público | `heridas.js` | `tablas/heridas-y-lesiones.md` |
+| Formato del enlace | `enlace.js` | [ADR 001](adr-001-multijugador-por-enlace.md) |
+
+«Fuente» es siempre un fichero de
+[`asantolaria/bloodbowl-my-rosters`](https://github.com/asantolaria/bloodbowl-my-rosters).
+
+## Trampas que ya han mordido
+
+**AR no empeora como AG y PS.** Los tres se escriben «X+», pero AG y PS son objetivos que
+tira el propio jugador (peor = subir, 3+ → 4+) y AR es el objetivo que tira el **rival**
+para romper la armadura (peor = bajar, 9+ → 8+). Agruparlos costó un test en rojo.
+
+**El 9 de la tabla de Escurridizos no es una Lesión más.** Es Magullado ya resuelto: no se
+tira el D16. En la tabla normal, el 9 ni siquiera es Lesión, es un KO.
