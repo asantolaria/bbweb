@@ -1,32 +1,38 @@
 // La interfaz móvil. Toda la lógica de juego vive en src/engine/; aquí solo hay
-// pantalla, toques y las decisiones de entrenador (callbacks síncronos del motor).
+// pantalla, toques y las decisiones de entrenador.
+//
+// Las decisiones (elegir dado, casilla de empuje, reroll…) se preguntan con hojas
+// táctiles, no con diálogos del navegador. El truco: el estado es serializable y los
+// dados van inyectados, así que una acción se ejecuta hasta el punto de decisión, se
+// descarta, se pregunta con calma y se re-ejecuta con los MISMOS dados grabados y la
+// respuesta puesta. Determinista, y el motor ni se entera (ver conDecisiones()).
 
 import { azarReal } from '../engine/dice.js';
 import { EQUIPOS } from '../data/equipos.js';
 import { ROSTERS_1000K } from '../data/rosters-iniciales.js';
 import { EQUIPOS_ES, POSICIONES_ES, FICHA_ES, HABILIDADES_ES } from '../data/nombres.es.js';
+import { FORMACIONES, asignarFormacion } from '../data/formaciones.js';
 import { crearEquipo } from '../engine/equipo.js';
-import { crearPartido, jugador, enCasilla, marcadoresDe, tieneZonaDefensa, posicionBalon } from '../engine/partido.js';
-import { ANCHO, ALTO, filaLos, enZonaAncha, sonAdyacentes } from '../engine/tablero.js';
+import { crearPartido, jugador, enCasilla, tieneZonaDefensa, posicionBalon } from '../engine/partido.js';
+import { ANCHO, ALTO, filaLos, sonAdyacentes } from '../engine/tablero.js';
 import { activar, paso, saltar, levantarse, terminarAccion } from '../engine/movimiento.js';
-import { placar, placarEnPenetracion, CARAS_PLACAJE } from '../engine/placaje.js';
-import { pase, entrega, alcance } from '../engine/pase.js';
+import { placar, placarEnPenetracion } from '../engine/placaje.js';
+import { pase, entrega } from '../engine/pase.js';
 import { falta } from '../engine/falta.js';
 import {
   prePartido, elegirSaque, desplegar, validarDespliegue, confirmarDespliegue,
   patada, moverEnEvento, terminarEvento, recepcionLibre, terminarTurno, comprobarTouchdown,
 } from '../engine/secuencia.js';
 import { aEnlace, desdeEnlace } from '../enlace.js';
-import { FORMACIONES, asignarFormacion } from '../data/formaciones.js';
 
 const KEY = 'bbweb-v1';
-const azar = azarReal;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
-let E = null;                                   // estado del partido (motor)
-let ui = { sel: null, modo: null, hoja: null }; // selección y modo de la pantalla
+let E = null;                                    // estado del partido (motor)
+let ui = { sel: null, modo: null, hoja: null, decision: null };
 let undoStack = [];
+let enCurso = false;                             // evita dobles toques durante una acción
 
 /* ---------- persistencia y deshacer ---------- */
 
@@ -34,75 +40,118 @@ const guardar = () => { try { localStorage.setItem(KEY, JSON.stringify(E)); } ca
 function deshacer() {
   if (!undoStack.length) return toast('Nada que deshacer.');
   E = JSON.parse(undoStack.pop());
-  ui = { sel: null, modo: null, hoja: null };
+  ui = { sel: null, modo: null, hoja: null, decision: null };
   guardar(); render();
 }
 
-/** Ejecuta una jugada del motor con red de seguridad: si lanza, el estado no cambia. */
-function ejecutar(fn) {
+/* ---------- el bucle de decisiones ----------
+   ejecutar(fn) corre fn(azar, decidir). Si fn necesita una decisión que aún no tiene
+   respuesta, se lanza NecesitaDecision: se descarta la ejecución parcial, se pregunta
+   con una hoja (o tocando el tablero) y se repite la acción con los dados grabados. */
+
+class NecesitaDecision extends Error {
+  constructor(pregunta) { super('decision'); this.pregunta = pregunta; }
+}
+
+async function ejecutar(fn) {
+  if (enCurso) return false;
+  enCurso = true;
   const snap = JSON.stringify(E);
+  const dados = [];
+  const respuestas = [];
   try {
-    fn();
-  } catch (err) {
-    E = JSON.parse(snap);
-    toast(err.message);
-    render();
+    for (let i = 0; i < 60; i++) {
+      E = JSON.parse(snap);
+      let iDado = 0, iResp = 0;
+      const azar = (caras) => {
+        if (iDado < dados.length && dados[iDado].caras === caras) return dados[iDado++].v;
+        dados.length = iDado;                    // una rama nueva: los dados viejos ya no valen
+        const v = azarReal(caras);
+        dados.push({ caras, v }); iDado++;
+        return v;
+      };
+      const decidir = (pregunta) => {
+        if (iResp < respuestas.length) return respuestas[iResp++];
+        throw new NecesitaDecision(pregunta);
+      };
+      try {
+        fn(azar, decidir);
+        undoStack.push(snap);
+        if (undoStack.length > 40) undoStack.shift();
+        if (E.fase === 'turno') comprobarTouchdown(E);
+        guardar(); render();
+        return true;
+      } catch (err) {
+        E = JSON.parse(snap);
+        if (!(err instanceof NecesitaDecision)) { toast(err.message); render(); return false; }
+        render();
+        respuestas.push(await preguntar(err.pregunta));
+      }
+    }
+    toast('Demasiadas decisiones: acción cancelada.');
     return false;
-  }
-  undoStack.push(snap);
-  if (undoStack.length > 40) undoStack.shift();
-  if (E.fase === 'turno') comprobarTouchdown(E);
-  guardar(); render();
-  return true;
-}
-
-/* ---------- decisiones de entrenador (síncronas) ---------- */
-
-function elegirSync(titulo, textos) {
-  if (textos.length <= 1) return 0;
-  const msg = `${titulo}\n` + textos.map((t, i) => `${i + 1}. ${t}`).join('\n');
-  for (;;) {
-    const r = prompt(msg, '1');
-    if (r === null) return 0;
-    const n = parseInt(r, 10);
-    if (n >= 1 && n <= textos.length) return n - 1;
+  } finally {
+    enCurso = false;
+    ui.decision = null;
+    render();
   }
 }
 
+/** Muestra la pregunta (hoja de botones, o casillas tocables en el tablero). */
+function preguntar(pregunta) {
+  return new Promise((resolver) => {
+    ui.decision = { pregunta, resolver };
+    render();
+  });
+}
+
+/** Callbacks del motor expresados como decisiones. */
 const CARA_ES = {
-  player_down: 'Atacante derribado', both_down: 'Ambos derribados', push: 'Empujón',
-  stumble: 'Desequilibrado', pow: '¡POW!',
+  player_down: '💀 Atacante derribado', both_down: '💥 Ambos derribados', push: '➡️ Empujón',
+  stumble: '〰️ Desequilibrado', pow: '⭐ ¡POW!',
 };
 
-function opcionesMotor() {
+function opcionesMotor(decidir) {
   return {
     alFallar: (tipo, c) => {
       const Eq = E.equipos[E.activo];
       if (Eq.rerolls <= 0) return false;
-      const detalle = c?.necesario ? ` (hacía falta ${c.necesario}+, salió ${c.valor})` : '';
-      return confirm(`Ha fallado: ${tipo}${detalle}.\n¿Gastar un reroll de equipo? (quedan ${Eq.rerolls})`);
+      const detalle = c?.necesario ? ` — hacía falta ${c.necesario}+ y salió ${c.valor}` : '';
+      return decidir({
+        tipo: 'si_no', titulo: `Ha fallado: ${tipo}${detalle}`,
+        si: `Gastar reroll (quedan ${Eq.rerolls})`, no: 'Aceptar el resultado',
+      });
     },
-    elegirDado: (resultados, quien) => {
-      const quienTxt = quien === 'objetivo' ? E.equipos[1 - E.activo].nombre : E.equipos[E.activo].nombre;
-      return elegirSync(`Dados de placaje — elige ${quienTxt}:`, resultados.map((r) => CARA_ES[r]));
-    },
-    elegirEmpuje: (cands, ctx) =>
-      elegirSync(ctx.defensor ? 'Echarse a un lado — elige el DEFENSOR la casilla:' : 'Casilla de empuje:',
-        cands.map((c) => (c.fuera ? '¡Al público!' : `columna ${c.x + 1}, fila ${c.y + 1}`))),
-    impulso: () => confirm('¿Hacer el impulso (ocupar la casilla del empujado)?'),
-    usarForcejear: (j) => confirm(`${j.id} tiene Forcejear. ¿Usarlo (ambos tumbados, sin armadura)?`),
+    elegirDado: (resultados, quien) => decidir({
+      tipo: 'opciones',
+      titulo: `Dados de placaje — elige ${E.equipos[quien === 'objetivo' ? 1 - E.activo : E.activo].nombre}`,
+      opciones: resultados.map((r) => CARA_ES[r]),
+    }),
+    elegirEmpuje: (cands, ctx) => decidir({
+      tipo: 'casilla',
+      titulo: ctx.defensor ? 'Echarse a un lado: el DEFENSOR toca la casilla' : 'Toca la casilla del empujón',
+      casillas: cands.map((c) => ({ x: c.x, y: c.y, fuera: c.fuera })),
+    }),
+    impulso: () => decidir({ tipo: 'si_no', titulo: '¿Hacer el impulso?', si: 'Ocupar la casilla', no: 'Quedarse' }),
+    usarForcejear: (j) => decidir({
+      tipo: 'si_no', titulo: `${etiqueta(j)} tiene Forcejear`,
+      si: 'Usarlo: ambos tumbados sin armadura', no: 'No usarlo',
+    }),
     elegirInterceptor: (ids) => {
-      if (!confirm(`${E.equipos[1 - E.activo].nombre}: ¿intentar interceptar el pase?`)) return null;
-      return ids[elegirSync('¿Quién lo intenta?', ids.map((id) => etiqueta(jugador(E, id))))];
+      const i = decidir({
+        tipo: 'opciones', titulo: `${E.equipos[1 - E.activo].nombre}: ¿interceptar el pase?`,
+        opciones: [...ids.map((id) => etiqueta(jugador(E, id))), 'No interceptar'],
+      });
+      return i >= ids.length ? null : ids[i];
     },
-    protestar: () => confirm('¡Expulsado! ¿Protestar al árbitro?'),
-    usarSoborno: () => confirm('¿Usar un Soborno para que el árbitro mire a otro lado?'),
+    protestar: () => decidir({ tipo: 'si_no', titulo: '¡Expulsado!', si: 'Protestar al árbitro', no: 'Aceptarlo' }),
+    usarSoborno: () => decidir({ tipo: 'si_no', titulo: 'Queda un Soborno', si: 'Untar al árbitro', no: 'Guardarlo' }),
   };
 }
 
 /* ---------- textos ---------- */
 
-const etiqueta = (j) => `${POSICIONES_ES[j.pos] ?? j.pos} #${j.dorsal} (${E.equipos[j.equipo].nombre})`;
+const etiqueta = (j) => `${POSICIONES_ES[j.pos] ?? j.pos} #${j.dorsal}`;
 const statLinea = (j) =>
   `MV ${j.perfil.mv} · FU ${j.perfil.fu} · AG ${j.perfil.ag}+ · PS ${j.perfil.ps}+ · AR ${j.perfil.ar}+`;
 const habilidades = (j) => j.hab.map((h) => HABILIDADES_ES[h] ?? h).join(', ') || '—';
@@ -120,7 +169,7 @@ function lineaRegistro(ev) {
     activacion: () => `— ${j} declara ${ev.accion}${ev.objetivo ? ` contra ${ev.objetivo}` : ''}`,
     esquivar: () => `${j} esquiva${c}${porques}`,
     esquivar_reroll: () => `  repite${ev.habilidad ? ' (Esquivar)' : ' (reroll)'}${c}`,
-    rush: () => `${j} fuerza la marcha${c ?? ` [${ev.d6}]`}`,
+    rush: () => `${j} fuerza la marcha${ev.chequeo ? c : ` [${ev.d6}]`}`,
     recoger: () => `${j} recoge${c}${porques}`,
     atrapar: () => `${j} atrapa${c}${porques}`,
     pase: () => `${j} pasa (${ev.alcance})${c}${porques}`,
@@ -147,8 +196,6 @@ function lineaRegistro(ev) {
   return (T[ev.tipo] ?? (() => `${ev.tipo}${j ? ' ' + j : ''}${c}`))();
 }
 
-/* ---------- toast ---------- */
-
 let tt;
 function toast(m) {
   const t = $('toast');
@@ -160,15 +207,14 @@ function toast(m) {
 
 /* ---------- partida nueva ---------- */
 
-function nuevaPartida(razaA, razaB, nombreA, nombreB) {
+async function nuevaPartida(razaA, razaB, nombreA, nombreB) {
   const A = crearEquipo(razaA, ROSTERS_1000K[razaA], { nombre: nombreA || EQUIPOS_ES[razaA] });
   const B = crearEquipo(razaB, ROSTERS_1000K[razaB], { nombre: nombreB || EQUIPOS_ES[razaB] });
   E = crearPartido(A, B);
   E.fase = 'pre_partido';
   undoStack = [];
-  ejecutar(() => prePartido(E, { azar }));
-  ui.hoja = null;
-  render();
+  ui = { sel: null, modo: null, hoja: null, decision: null };
+  await ejecutar((azar) => prePartido(E, { azar }));
 }
 
 /** Aplica una formación clásica con lo que haya disponible. */
@@ -185,31 +231,40 @@ function aplicarFormacion(equipo, clave) {
 
 /* ---------- interacción con el campo ---------- */
 
-function tapCell(x, y) {
+async function tapCell(x, y) {
   if (!E) return;
+
+  // Una decisión de tipo casilla se resuelve tocando el tablero.
+  if (ui.decision) {
+    const p = ui.decision.pregunta;
+    if (p.tipo === 'casilla') {
+      const i = p.casillas.findIndex((c) => c.x === x && c.y === y);
+      if (i >= 0) { const r = ui.decision.resolver; ui.decision = null; r(i); }
+      else toast('Toca una de las casillas marcadas.');
+    }
+    return;
+  }
+  if (enCurso) return;
+
   const j = enCasilla(E, x, y);
 
   if (E.fase === 'despliegue_kicker' || E.fase === 'despliegue_receiver') {
     const eq = E.fase === 'despliegue_kicker' ? E.kicker : 1 - E.kicker;
     if (ui.sel) {
-      const s = jugador(E, ui.sel);
-      ejecutar(() => desplegar(E, s.id, x, y));
-      ui.sel = null; render();
+      const s = ui.sel; ui.sel = null;
+      await ejecutar(() => desplegar(E, s, x, y));
       return;
     }
     if (j && j.equipo === eq) { ui.sel = j.id; render(); }
     return;
   }
 
-  if (E.fase === 'patada') {
-    ejecutar(() => patada(E, x, y, { azar }));
-    return;
-  }
+  if (E.fase === 'patada') { await ejecutar((azar, decidir) => patada(E, x, y, { azar })); return; }
 
   if (E.pendiente) {
     if (ui.sel) {
       const id = ui.sel; ui.sel = null;
-      ejecutar(() => moverEnEvento(E, id, x, y));
+      await ejecutar(() => moverEnEvento(E, id, x, y));
       return;
     }
     if (j && j.equipo === E.pendiente.equipo) { ui.sel = j.id; render(); }
@@ -217,7 +272,7 @@ function tapCell(x, y) {
   }
 
   if (E.fase === 'recepcion_libre') {
-    if (j && j.equipo !== E.kicker) ejecutar(() => recepcionLibre(E, j.id));
+    if (j && j.equipo !== E.kicker) await ejecutar(() => recepcionLibre(E, j.id));
     return;
   }
 
@@ -225,7 +280,11 @@ function tapCell(x, y) {
 
   const a = E.activacion;
   if (!a) {
-    // Seleccionar a un jugador propio activable.
+    if (ui.modo === 'blitz_objetivo' && j && j.equipo !== E.activo) {
+      const sel = ui.sel; ui.modo = null;
+      await ejecutar((azar) => activar(E, sel, 'blitz', { azar, objetivo: j.id }));
+      return;
+    }
     if (j && j.equipo === E.activo && !j.activado && j.postura !== 'aturdido') {
       ui.sel = j.id; ui.modo = 'elegir_accion';
     } else {
@@ -237,79 +296,86 @@ function tapCell(x, y) {
 
   // Hay activación en curso.
   const yo = jugador(E, a.jugador);
-  const opciones = opcionesMotor();
-
-  if (ui.modo === 'blitz_objetivo') return; // el objetivo se elige antes de activar
 
   if (ui.modo === 'pase_objetivo') {
     ui.modo = null;
-    ejecutar(() => pase(E, x, y, { azar, opciones }));
+    await ejecutar((azar, decidir) => pase(E, x, y, { azar, opciones: opcionesMotor(decidir) }));
     return;
   }
   if (j && a.accion === 'blitz' && j.id === a.objetivoBlitz && sonAdyacentes(yo.x, yo.y, j.x, j.y) && !a.placajeHecho) {
-    ejecutar(() => placarEnPenetracion(E, { azar, opciones }));
+    await ejecutar((azar, decidir) => placarEnPenetracion(E, { azar, opciones: opcionesMotor(decidir) }));
     return;
   }
   if (j && a.accion === 'block' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
-    ejecutar(() => { placar(E, yo.id, j.id, { azar, opciones }); terminarAccion(E); });
+    await ejecutar((azar, decidir) => { placar(E, yo.id, j.id, { azar, opciones: opcionesMotor(decidir) }); terminarAccion(E); });
     return;
   }
   if (j && a.accion === 'foul' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
-    ejecutar(() => falta(E, j.id, { azar, opciones }));
+    await ejecutar((azar, decidir) => falta(E, j.id, { azar, opciones: opcionesMotor(decidir) }));
     return;
   }
   if (j && a.accion === 'handoff' && j.equipo === yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
-    ejecutar(() => entrega(E, j.id, { azar }));
+    await ejecutar((azar) => entrega(E, j.id, { azar }));
     return;
   }
   if (!j) {
     const dist = Math.max(Math.abs(x - yo.x), Math.abs(y - yo.y));
-    if (yo.postura === 'tumbado') {
-      if (!ejecutar(() => levantarse(E, { azar }))) return;
-      if (!E.activacion) return;
-    }
-    if (dist === 1) ejecutar(() => paso(E, x, y, { azar, alFallar: opciones.alFallar }));
-    else if (dist === 2) ejecutar(() => saltar(E, x, y, { azar, alFallar: opciones.alFallar }));
-    else toast('Mueve casilla a casilla (o salta por encima de un caído).');
+    await ejecutar((azar, decidir) => {
+      const opciones = opcionesMotor(decidir);
+      if (jugador(E, a.jugador).postura === 'tumbado') {
+        levantarse(E, { azar });
+        if (!E.activacion) return;
+        if (x === yo.x && y === yo.y) return;   // solo quería levantarse
+      }
+      if (dist === 1) paso(E, x, y, { azar, alFallar: opciones.alFallar });
+      else if (dist === 2) saltar(E, x, y, { azar, alFallar: opciones.alFallar });
+      else throw new Error('Mueve casilla a casilla (o salta por encima de un caído).');
+    });
   }
 }
 
 /* ---------- acciones de los chips ---------- */
 
-function act(el) {
+async function act(el) {
   const d = el.dataset;
-  const opciones = opcionesMotor();
   switch (d.act) {
     case 'nueva': ui.hoja = 'inicio'; break;
     case 'empezar': {
       const razaA = $('selA').value, razaB = $('selB').value;
-      nuevaPartida(razaA, razaB, $('nomA').value.trim(), $('nomB').value.trim());
+      await nuevaPartida(razaA, razaB, $('nomA').value.trim(), $('nomB').value.trim());
       return;
     }
-    case 'saque': ejecutar(() => elegirSaque(E, d.v)); return;
-    case 'formacion': ejecutar(() => aplicarFormacion(E.fase === 'despliegue_kicker' ? E.kicker : 1 - E.kicker, d.v)); return;
-    case 'confirmar': ui.sel = null; ejecutar(() => confirmarDespliegue(E)); return;
-    case 'centro': ejecutar(() => patada(E, 7, E.kicker === 0 ? 6 : 19, { azar })); return;
-    case 'evento_fin': ui.sel = null; ejecutar(() => terminarEvento(E, { azar })); return;
+    case 'saque': await ejecutar(() => elegirSaque(E, d.v)); return;
+    case 'formacion': await ejecutar(() => aplicarFormacion(E.fase === 'despliegue_kicker' ? E.kicker : 1 - E.kicker, d.v)); return;
+    case 'confirmar': ui.sel = null; await ejecutar(() => confirmarDespliegue(E)); return;
+    case 'centro': await ejecutar((azar) => patada(E, 7, E.kicker === 0 ? 6 : 19, { azar })); return;
+    case 'evento_fin': ui.sel = null; await ejecutar((azar) => terminarEvento(E, { azar })); return;
     case 'accion': {
       const sel = ui.sel;
       ui.modo = null;
       if (d.v === 'blitz') { ui.modo = 'blitz_objetivo'; render(); return; }
-      ejecutar(() => activar(E, sel, d.v, { azar }));
+      await ejecutar((azar) => activar(E, sel, d.v, { azar }));
       return;
     }
     case 'lanzar': ui.modo = 'pase_objetivo'; render(); return;
-    case 'fin_activacion': ui.sel = null; ui.modo = null; ejecutar(() => terminarAccion(E)); return;
+    case 'fin_activacion': ui.sel = null; ui.modo = null; await ejecutar(() => terminarAccion(E)); return;
     case 'fin_turno':
       ui.sel = null; ui.modo = null;
-      if (!ejecutar(() => terminarTurno(E, { azar }))) return;
+      if (!(await ejecutar((azar) => terminarTurno(E, { azar })))) return;
       if (E.fase === 'turno') ui.hoja = 'relevo';
       render(); return;
     case 'deshacer': deshacer(); return;
     case 'hoja': ui.hoja = d.v; break;
     case 'cerrar': ui.hoja = null; break;
+    case 'decision': {
+      if (!ui.decision) break;
+      const r = ui.decision.resolver;
+      ui.decision = null;
+      r(d.v === 'si' ? true : d.v === 'no' ? false : +d.v);
+      return;
+    }
     case 'enlace': {
-      const base = location.origin === 'null' ? location.href.split('#')[0] : location.href.split('#')[0];
+      const base = location.href.split('#')[0];
       aEnlace(E, base).then((url) => navigator.clipboard?.writeText(url).then(
         () => toast('Enlace copiado: envíaselo al rival.'),
         () => { prompt('Copia el enlace:', url); },
@@ -320,15 +386,6 @@ function act(el) {
   render();
 }
 
-// El objetivo del blitz se elige tocando al rival ANTES de activar.
-function tapBlitzObjetivo(x, y) {
-  const j = enCasilla(E, x, y);
-  const sel = ui.sel;
-  if (!j || j.equipo === E.activo) { toast('Toca al rival objetivo de la Penetración.'); return; }
-  ui.modo = null;
-  ejecutar(() => activar(E, sel, 'blitz', { azar, objetivo: j.id }));
-}
-
 /* ---------- render ---------- */
 
 function render() {
@@ -336,9 +393,7 @@ function render() {
   renderTop(); renderPitch(); renderPanel(); renderNav(); renderHoja();
 }
 
-function colorEq(i) {
-  return i === 0 ? ['var(--eqA)', 'var(--eqAt)'] : ['var(--eqB)', 'var(--eqBt)'];
-}
+const colorEq = (i) => (i === 0 ? ['var(--eqA)', 'var(--eqAt)'] : ['var(--eqB)', 'var(--eqBt)']);
 
 function renderTop() {
   const fases = {
@@ -364,10 +419,14 @@ function renderPitch() {
   const p = $('pitch');
   p.style.setProperty('--cell', `${cell}px`);
 
-  // Marcaje visible: con un jugador propio seleccionado, las zonas de placaje rivales.
+  // Casillas destacadas: una decisión de empuje, o las zonas de placaje rivales.
+  const destacadas = new Set();
+  if (ui.decision?.pregunta.tipo === 'casilla') {
+    for (const c of ui.decision.pregunta.casillas) destacadas.add(`${c.x},${c.y}`);
+  }
   const marca = new Set();
   const sel = ui.sel && E.jugadores[ui.sel];
-  if (sel && E.fase === 'turno') {
+  if (sel && E.fase === 'turno' && !ui.decision) {
     for (const r of Object.values(E.jugadores)) {
       if (r.equipo !== sel.equipo && tieneZonaDefensa(r)) {
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -387,7 +446,8 @@ function renderPitch() {
       if (y === 0 || y === ALTO - 1) cls.push('ez');
       if (y === 13) cls.push('los');
       if (x === 4 || x === ANCHO - 4) cls.push('wz');
-      if (marca.has(`${x},${y}`)) cls.push('tz');
+      if (destacadas.has(`${x},${y}`)) cls.push('ok');
+      else if (marca.has(`${x},${y}`)) cls.push('tz');
       const j = enCasilla(E, x, y);
       let inner = '';
       if (j) {
@@ -412,6 +472,20 @@ function renderPanel() {
   const chip = (act, label, extra = '') => `<button data-act="${act}" ${extra}>${label}</button>`;
   const chipV = (act, v, label, extra = '') => `<button data-act="${act}" data-v="${v}" ${extra}>${label}</button>`;
 
+  // Una decisión en curso manda sobre todo lo demás.
+  if (ui.decision) {
+    const p = ui.decision.pregunta;
+    info.innerHTML = `<b>${esc(p.titulo)}</b>` + (p.tipo === 'casilla' ? '<span class="skills">Toca una casilla marcada en el campo.</span>' : '');
+    if (p.tipo === 'si_no') {
+      chips.innerHTML = chipV('decision', 'si', esc(p.si), 'class="hot"') + chipV('decision', 'no', esc(p.no));
+    } else if (p.tipo === 'opciones') {
+      chips.innerHTML = p.opciones.map((o, i) => chipV('decision', i, esc(o), i === 0 ? 'class="hot"' : '')).join('');
+    } else {
+      chips.innerHTML = '';
+    }
+    return;
+  }
+
   switch (E.fase) {
     case 'eleccion_saque':
       txt = `<b>${esc(E.equipos[E.ganadorSorteo].nombre)}</b> gana el sorteo (clima: ${CLIMA_ES[E.clima]}).`;
@@ -424,7 +498,6 @@ function renderPanel() {
       txt = `Despliega <b>${esc(E.equipos[eq].nombre)}</b> (${n}/11)` +
         (sel ? ` — toca una casilla para colocar a ${esc(etiqueta(sel))}` : '') +
         (problemas.length ? `<span class="skills">${esc(problemas[0])}</span>` : '');
-      // El pateador defiende; el receptor ataca: sus formaciones primero.
       const defendiendo = eq === E.kicker;
       const orden = Object.entries(FORMACIONES)
         .sort(([, a], [, b]) => (a.lado === (defendiendo ? 'defensa' : 'ataque') ? -1 : 1) - (b.lado === (defendiendo ? 'defensa' : 'ataque') ? -1 : 1));
@@ -600,11 +673,7 @@ document.addEventListener('click', (ev) => {
   const btn = ev.target.closest('[data-act]');
   if (btn) { act(btn); return; }
   const cel = ev.target.closest('.c');
-  if (cel) {
-    const x = +cel.dataset.x, y = +cel.dataset.y;
-    if (ui.modo === 'blitz_objetivo') { tapBlitzObjetivo(x, y); return; }
-    tapCell(x, y);
-  }
+  if (cel) tapCell(+cel.dataset.x, +cel.dataset.y);
 });
 window.addEventListener('resize', () => E && renderPitch());
 
