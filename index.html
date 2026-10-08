@@ -3,32 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mesa de Blood Bowl</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#17231b">
+<title>Blood Bowl</title>
 <style>
 :root{
   --bg:#e9ece0; --panel:#fbfcf6; --ink:#17231b; --muted:#5c6a5f; --line:#cdd5c6;
   --grass:#3d7f47; --grass2:#37743f; --ez:#2f6438; --chalk:#f4f5ea; --brass:#d6a640;
   --bad:#b8392c; --good:#2f7d3e; --btn:#e1e6d6;
+  --eqA:#b8392c; --eqAt:#ffffff; --eqB:#2b5f9e; --eqBt:#ffffff;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0f1811; --panel:#18241b; --ink:#e8ecdd; --muted:#97a596; --line:#2b3a2f; --btn:#24332a;
-  }
+  :root{ --bg:#0f1811; --panel:#18241b; --ink:#e8ecdd; --muted:#97a596; --line:#2b3a2f; --btn:#24332a; }
 }
-:root[data-theme="dark"]{--bg:#0f1811; --panel:#18241b; --ink:#e8ecdd; --muted:#97a596; --line:#2b3a2f; --btn:#24332a;}
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+html{height:100%}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:var(--btn);border-radius:10px;padding:.5rem .75rem;touch-action:manipulation}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
-.num{font-family:"Saira Condensed","Arial Narrow",sans-serif}
 #app{height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto}
 
 /* Marcador */
@@ -36,13 +31,13 @@ header{flex:none;display:grid;grid-template-columns:1fr auto 1fr;gap:6px;padding
 .team{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:12px;background:var(--panel);border:1px solid var(--line);min-width:0;text-align:left}
 .team.b{flex-direction:row-reverse;text-align:right}
 .team.on{border-color:var(--c);box-shadow:inset 0 -3px 0 var(--c)}
-.team .sc{font:800 2rem/1 "Saira Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.team .sc{font-weight:800;font-size:1.7rem;font-variant-numeric:tabular-nums;line-height:1}
 .team .meta{min-width:0;display:flex;flex-direction:column}
-.team .nm{font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.team .sub{font-size:.75rem;color:var(--muted);white-space:nowrap}
-.endturn{display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--ink);color:var(--bg);border-radius:12px;padding:4px 10px;min-width:92px}
-.endturn small{font-size:.7rem;opacity:.75}
-.endturn b{font:700 1rem/1.1 "Saira Condensed",sans-serif}
+.team .nm{font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.team .sub{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.mid{display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--ink);color:var(--bg);border-radius:12px;padding:4px 10px;min-width:84px;border:0}
+.mid small{font-size:.68rem;opacity:.75}
+.mid b{font-size:.92rem;line-height:1.1}
 
 /* Campo */
 main{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:2px 0}
@@ -50,696 +45,75 @@ main{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align
 .c{position:relative;display:grid;place-items:center;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.13)}
 .c.s2{background:var(--grass2)}
 .c.ez{background:var(--ez)}
+.c.wz{box-shadow:inset 0 0 0 .5px rgba(255,255,255,.13), inset 3px 0 0 -1.5px rgba(244,245,234,.35)}
+.c.los{border-top:2px solid var(--chalk)}
 .c.tz::after{content:"";position:absolute;inset:1px;background:rgba(184,57,44,.28);border-radius:2px;pointer-events:none}
-.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.c.ok::after{content:"";position:absolute;inset:1px;background:rgba(214,166,64,.3);border-radius:2px;pointer-events:none}
 
-.tk{position:relative;width:84%;height:84%;border-radius:50%;background:var(--c);color:var(--t);display:grid;place-items:center;border:2px solid rgba(255,255,255,.92);box-shadow:0 1px 2px rgba(0,0,0,.45);font:800 calc(var(--cell)*.44)/1 "Saira Condensed",sans-serif;letter-spacing:-.02em;z-index:1}
+.tk{position:relative;width:84%;height:84%;border-radius:50%;background:var(--c);color:var(--t);display:grid;place-items:center;border:2px solid rgba(255,255,255,.92);box-shadow:0 1px 2px rgba(0,0,0,.45);font-weight:800;font-size:calc(var(--cell)*.42);letter-spacing:-.02em;z-index:1}
 .tk.big{border-radius:24%;width:96%;height:96%;border-width:2.5px}
 .tk span{display:block;transition:transform .15s}
-.tk.prone{background:rgba(0,0,0,.25);color:#fff;border-color:var(--c);border-width:3px}
-.tk.prone span{transform:rotate(-90deg)}
-.tk.stun{background:repeating-linear-gradient(45deg,var(--c) 0 3px,rgba(0,0,0,.55) 3px 6px);color:#fff;border-color:var(--c);border-style:dashed}
-.tk.stun span{transform:rotate(180deg)}
-.tk.act{opacity:.42}
+.tk.tumbado{background:rgba(0,0,0,.25);color:#fff;border-color:var(--c);border-width:3px}
+.tk.tumbado span{transform:rotate(-90deg)}
+.tk.aturdido{background:repeating-linear-gradient(45deg,var(--c) 0 3px,rgba(0,0,0,.55) 3px 6px);color:#fff;border-color:var(--c);border-style:dashed}
+.tk.aturdido span{transform:rotate(180deg)}
+.tk.distraido{opacity:.75;border-style:dotted}
+.tk.act{opacity:.45;filter:grayscale(.85)}
 .tk.sel{outline:3px solid var(--brass);outline-offset:1px;opacity:1}
 .bc{position:absolute;top:-3px;right:-3px;width:42%;height:42%;border-radius:50%;background:#7a4a22;border:2px solid var(--brass)}
-.ball{width:46%;height:46%;border-radius:50%;background:#7a4a22;border:2px solid var(--brass);box-shadow:0 1px 2px rgba(0,0,0,.5)}
-.c .ball.under{position:absolute;left:0;bottom:0;width:38%;height:38%;z-index:2}
-.ball.sel{outline:3px solid #fff}
+.c .ball{width:46%;height:46%;border-radius:50%;background:#7a4a22;border:2px solid var(--brass);box-shadow:0 1px 2px rgba(0,0,0,.5)}
 
 /* Panel inferior */
 footer{flex:none;background:var(--panel);border-top:1px solid var(--line)}
-.panel{height:104px;padding:8px 10px 0;display:flex;flex-direction:column;gap:6px}
-.info{display:flex;align-items:center;gap:8px;min-height:30px;font-size:.9rem}
-.info .mini{--cell:28px;width:28px;height:28px;flex:none;display:grid;place-items:center}
-.info .mini .tk{width:100%;height:100%}
-.info .txt{min-width:0;flex:1;line-height:1.2}
-.info .txt b{font-weight:600}
-.info .stats{font:500 .85rem "Saira Condensed",sans-serif;color:var(--muted)}
-.skills{display:block;font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mv{font:700 .95rem "Saira Condensed",sans-serif;padding:2px 8px;border-radius:8px;background:var(--btn);white-space:nowrap}
-.mv.gfi{background:var(--brass);color:#1a1a1a}
-.mv.over{background:var(--bad);color:#fff}
+.panel{min-height:96px;padding:8px 10px 2px;display:flex;flex-direction:column;gap:6px}
+.info{font-size:.88rem;line-height:1.25;min-height:34px}
+.info b{font-weight:650}
+.info .skills{display:block;font-size:.74rem;color:var(--muted)}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chips button{flex:none;padding:.4rem .7rem;font-size:.85rem;font-weight:600;border-radius:999px}
+.chips button{flex:none;padding:.42rem .7rem;font-size:.85rem;font-weight:600;border-radius:999px}
 .chips button.hot{background:var(--brass);color:#1a1a1a}
 .chips button.warn{background:var(--bad);color:#fff}
-nav{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:4px 6px 6px}
-nav button{padding:.5rem .2rem;font-size:.8rem;font-weight:600;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-nav button i{width:12px;height:12px;border-radius:50%;background:var(--c,var(--muted));border:1.5px solid var(--line)}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 6px 6px}
+nav button{padding:.45rem .2rem;font-size:.78rem;font-weight:600;background:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 nav button:disabled{opacity:.35}
+
+/* Banquillo */
+.bench{display:flex;gap:6px;overflow-x:auto;padding:4px 2px}
+.bench button{flex:none;width:44px;height:52px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;font-size:.62rem}
+.bench .tk{width:30px;height:30px;font-size:.8rem}
+.bench button.sel{outline:2px solid var(--brass)}
 
 /* Hojas */
 .wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
 .wrap[hidden]{display:none}
-.sheet{background:var(--panel);width:100%;max-width:640px;max-height:84%;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px))}
-.sheet h2{font:800 1.5rem/1.1 "Saira Condensed",sans-serif;margin:0}
-.sheet h3{font:700 1.05rem "Saira Condensed",sans-serif;margin:18px 0 6px;color:var(--muted)}
+.sheet{background:var(--panel);width:100%;max-width:640px;max-height:86%;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h2{font-weight:800;font-size:1.35rem;margin:0 0 8px}
+.sheet h3{font-weight:700;font-size:.95rem;margin:16px 0 6px;color:var(--muted)}
 .shead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.field{flex:1;min-width:0;padding:.55rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
-.sw{width:34px;height:34px;border-radius:50%;padding:0;background:var(--c);border:3px solid var(--line)}
-.sw.on{border-color:var(--ink)}
-.pl{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line);width:100%;background:transparent;border-radius:0;text-align:left}
-.pl .mini{--cell:30px;width:30px;height:30px;display:grid;place-items:center;flex:none}
-.pl .mini .tk{width:100%;height:100%}
-.pl .grow{flex:1;min-width:0}
-.pl .st{font:500 .85rem "Saira Condensed",sans-serif;color:var(--muted)}
 .x{background:transparent;color:var(--muted);padding:.3rem .55rem;font-size:1rem}
-.empty{color:var(--muted);font-size:.9rem;padding:4px 0}
-.add{display:flex;flex-wrap:wrap;gap:6px}
-.add button{font-size:.85rem}
-.primary{background:var(--ink);color:var(--bg);font-weight:600}
-.danger{background:var(--bad);color:#fff;font-weight:600}
-.stepper{display:flex;align-items:center;gap:6px}
-.stepper b{min-width:2ch;text-align:center;font:800 1.4rem "Saira Condensed",sans-serif}
-.stepper button{width:38px;height:38px;padding:0;font-size:1.2rem;font-weight:700}
-.grid2{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px 12px;align-items:center}
-.grid2 .hd{font-weight:600;font-size:.85rem;color:var(--muted)}
-.seg{display:inline-flex;background:var(--btn);border-radius:10px;padding:3px}
-.seg button{background:transparent;padding:.35rem .9rem}
-.seg button.on{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.15);font-weight:600}
-.legend{display:grid;grid-template-columns:34px 1fr;gap:8px 10px;align-items:center;font-size:.9rem}
-.legend .mini{--cell:30px;width:30px;height:30px;display:grid;place-items:center;background:var(--grass);border-radius:6px}
-.legend .mini .tk{width:84%;height:84%}
-
-/* Dados */
-.dice{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.dice button{padding:.7rem .2rem;font-weight:600}
-.result{min-height:96px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin:14px 0 4px}
-.die{width:64px;height:64px;border-radius:14px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font:800 2.2rem "Saira Condensed",sans-serif}
-.die.blk{width:96px;min-height:70px;font:700 1rem/1.05 "Saira Condensed",sans-serif;text-align:center;padding:6px}
-.die.blk.bad{background:var(--bad);color:#fff}
-.die.blk.good{background:var(--good);color:#fff}
-.die.blk.mid{background:var(--brass);color:#1a1a1a}
-.sum{font:700 1.1rem "Saira Condensed",sans-serif;color:var(--muted);text-align:center}
-.dice.tables{grid-template-columns:repeat(3,1fr)}
-.tres{flex-basis:100%;text-align:center;font-size:.95rem;line-height:1.35;max-width:46ch}
-.hist{font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
-
-.toast{max-width:90vw;text-align:center;position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.5rem 1rem;border-radius:999px;font-weight:600;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.field{flex:1;min-width:0;padding:.55rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.primary{background:var(--ink);color:var(--bg);font-weight:600;width:100%;padding:.7rem}
+.log{font-size:.8rem;line-height:1.45;white-space:pre-wrap;color:var(--muted);max-height:50vh;overflow:auto;background:var(--bg);border-radius:10px;padding:8px 10px}
+.toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.5rem .9rem;border-radius:10px;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:40;max-width:90%;pointer-events:none}
 .toast.show{opacity:1}
-@media (prefers-reduced-motion: reduce){*{transition:none!important}}
-.panel{height:118px}
-.g-title{font:700 1.05rem/1.15 "Saira Condensed",sans-serif}
-.g-text{font-size:.82rem;color:var(--muted);line-height:1.3;max-height:2.7em;overflow-y:auto}
-.guide{display:flex;flex-direction:column;gap:2px;min-height:0}
-.team .role{font:700 .68rem/1 "Saira Condensed",sans-serif;padding:2px 6px;border-radius:999px;background:var(--btn);color:var(--ink);align-self:flex-start;margin-top:2px}
-.team.b .role{align-self:flex-end}
-.team .role.k{background:var(--ink);color:var(--bg)}
-.endturn:disabled{opacity:.45}
-.c.dim::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.32);pointer-events:none}
-.ball.air{outline:2px dashed #fff;outline-offset:2px}
-.chk{display:inline-block;margin-right:8px;white-space:nowrap}
-.chk.ok{color:var(--good)}.chk.no{color:var(--bad);font-weight:600}
-:root[data-theme="dark"] .chk.ok{color:#6cc47c}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chk.ok{color:#6cc47c}}
-.chips button:disabled{opacity:.4}
-.buy{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
-.buy .grow{flex:1;min-width:0;line-height:1.25}
-.buy .mini{--cell:30px;width:30px;height:30px;display:grid;place-items:center;flex:none}
-.buy .mini .tk{width:100%;height:100%}
-.buy .st{font:500 .82rem "Saira Condensed",sans-serif;color:var(--muted)}
-.buy .stepper button{width:34px;height:34px}
-.budget{position:sticky;top:-14px;z-index:2;background:var(--panel);padding:8px 0 10px;margin-bottom:6px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:.9rem}
-.budget b{font-size:1.3rem}
-.budget .bar{flex-basis:100%;height:6px;border-radius:3px;background:var(--btn);overflow:hidden}
-.budget .bar i{display:block;height:100%;background:var(--good)}
-.budget.bad .bar i{background:var(--bad)}
-.budget.bad{color:var(--bad)}
-.dv{display:inline-grid;place-items:center;min-width:1.35em;height:1.35em;padding:0 2px;margin:0 1px;border-radius:4px;background:var(--ink);color:var(--bg);font:700 .8rem/1 "Saira Condensed",sans-serif;vertical-align:1px}
-.dv.d8{background:var(--brass);color:#1a1a1a}
-.g-text{max-height:3.2em}
-.prerow{display:flex;align-items:center;gap:10px;margin:6px 0}
-.prerow .pname{min-width:7em;font-weight:600}
-.prerow .die{width:48px;height:48px;font-size:1.7rem;border-radius:11px}
-.prerow .eq{font:600 1.2rem "Saira Condensed",sans-serif}
-.die.coin{background:var(--brass);color:#1a1a1a}
 </style>
 </head>
 <body>
 <div id="app">
   <header id="top"></header>
-  <main id="main"><div class="pitch" id="pitch"></div></main>
+  <main><div id="pitch" class="pitch"></div></main>
   <footer>
-    <div class="panel" id="panel"></div>
+    <div class="panel">
+      <div class="info" id="info"></div>
+      <div class="chips" id="chips"></div>
+    </div>
     <nav id="nav"></nav>
   </footer>
 </div>
-<div class="wrap" id="wrap" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="wrap" id="wrap" hidden><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
-
-<script>
-const COLORS=[
-  {c:'#c0392b',t:'#fff',n:'Rojo'},{c:'#2a5cbf',t:'#fff',n:'Azul'},{c:'#1d1f1e',t:'#fff',n:'Negro'},
-  {c:'#6d3fa8',t:'#fff',n:'Morado'},{c:'#e0a81c',t:'#1a1a1a',n:'Amarillo'},{c:'#f2f2ee',t:'#1a1a1a',n:'Blanco'},
-  {c:'#d9661e',t:'#fff',n:'Naranja'}];
-// Plantillas Blood Bowl Season 3 (2025): dataset FUMBBL (bb-tournament-validator), contrastado con bloodbowlbase.ru y nufflezone.com.
-const RACES={"old_world_alliance":{"n":"Alianza del Viejo Mundo","rr":70,"apo":true,"bg":1,"tier":3,"rules":["Old World Classic"],"pos":[{"k":"human_lineman","n":"Línea Humano","en":"Human Lineman","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"line","sk":""},{"k":"human_thrower","n":"Lanzador Humano","en":"Human Thrower","ab":"Lz","max":1,"cost":75,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"throw","sk":"Manos Seguras, Pasar"},{"k":"human_catcher","n":"Receptor Humano","en":"Human Catcher","ab":"RH","max":1,"cost":75,"ma":8,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"catch","sk":"Atrapar, Esquivar"},{"k":"human_blitzer","n":"Blitzer Humano","en":"Human Blitzer","ab":"BH","max":1,"cost":85,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"blitz","sk":"Placar, Placaje Defensivo"},{"k":"dwarf_lineman","n":"Línea Enano","en":"Dwarf Lineman","ab":"LE","max":3,"cost":70,"ma":4,"st":3,"ag":"4+","pa":"5+","av":"10+","r":"line","sk":"Rompe Defensas, Placar, Cabeza Dura"},{"k":"dwarf_runner","n":"Corredor Enano","en":"Dwarf Runner","ab":"CE","max":1,"cost":80,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"catch","sk":"Esprintar, Manos Seguras, Cabeza Dura"},{"k":"dwarf_blitzer","n":"Blitzer Enano","en":"Dwarf Blitzer","ab":"BE","max":1,"cost":100,"ma":5,"st":3,"ag":"4+","pa":"4+","av":"10+","r":"blitz","sk":"Placaje Heroico, Placar, Placaje Defensivo, Cabeza Dura"},{"k":"troll_slayer","n":"Matatrolls","en":"Troll Slayer","ab":"M","max":1,"cost":95,"ma":5,"st":3,"ag":"4+","pa":"5+","av":"9+","r":"line","sk":"Placar, Agallas, Furia, Cabeza Dura, Odio (Troll)"},{"k":"halfling_hopeful","n":"Halfling","en":"Halfling Hopeful","ab":"H","max":3,"cost":30,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"7+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"ogre","n":"Ogro","en":"Ogre","ab":"O","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (3+), Lanzar Compañero"},{"k":"altern_forest_treeman","n":"Hombre Árbol","en":"Altern Forest Treeman","ab":"HÁ","max":1,"cost":120,"ma":2,"st":6,"ag":"5+","pa":"5+","av":"11+","r":"big","sk":"Golpe Mortífero, Mantenerse Firme, Brazo Fuerte, Cabeza Dura, Solitario (4+), Echar Raíces, ¡Timmmber! (Timmm-ber!), Lanzar Compañero"}],"start":{"human_lineman":1,"human_thrower":1,"human_catcher":1,"human_blitzer":1,"dwarf_lineman":1,"dwarf_runner":1,"dwarf_blitzer":1,"troll_slayer":1,"halfling_hopeful":2,"ogre":1},"sRR":2,"sApo":0},"high_elf":{"n":"Altos Elfos","rr":50,"apo":true,"bg":1,"tier":2,"rules":["Elven Kingdoms League"],"pos":[{"k":"high_elf_lineman","n":"Línea","en":"High Elf Lineman","ab":"L","max":16,"cost":65,"ma":6,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"line","sk":""},{"k":"phoenix_warrior","n":"Guerrero Fénix","en":"Phoenix Warrior","ab":"GF","max":2,"cost":90,"ma":6,"st":3,"ag":"2+","pa":"2+","av":"9+","r":"throw","sk":"Revientanubes (Cloud Burster), Pasar, Pase Seguro (Safe Pass)"},{"k":"white_lion","n":"León Blanco","en":"White Lion","ab":"LB","max":2,"cost":110,"ma":7,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"blitz","sk":"Forcejeo, Garras"},{"k":"dragon_prince","n":"Príncipe Dragón","en":"Dragon Prince","ab":"PD","max":2,"cost":110,"ma":8,"st":3,"ag":"2+","pa":"4+","av":"9+","r":"catch","sk":"Placar, Mi Balón (My Ball), Pie Firme (Steady Footing)"}],"start":{"high_elf_lineman":6,"phoenix_warrior":2,"white_lion":2,"dragon_prince":1},"sRR":2,"sApo":0},"amazon":{"n":"Amazonas","rr":60,"apo":true,"bg":1,"tier":1,"rules":["Lustrian Superleague"],"pos":[{"k":"eagle_warrior","n":"Guerrera Águila","en":"Eagle Warrior","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar"},{"k":"python_warrior","n":"Guerrera Pitón","en":"Python Warrior","ab":"GP","max":2,"cost":80,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"8+","r":"throw","sk":"Esquivar, Atento al Balón, Pasar, Pase Seguro (Safe Pass)"},{"k":"piranha_warrior","n":"Guerrera Piraña","en":"Piranha Warrior","ab":"G","max":2,"cost":90,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"blitz","sk":"Esquivar, En Pie de un Salto, Golpear y Correr"},{"k":"jaguar_warrior_blocker","n":"Guerrera Jaguar","en":"Jaguar Warrior Blocker","ab":"GJ","max":2,"cost":110,"ma":6,"st":4,"ag":"3+","pa":"4+","av":"9+","r":"line","sk":"Esquivar, Rompe Defensas"}],"start":{"eagle_warrior":5,"python_warrior":2,"piranha_warrior":2,"jaguar_warrior_blocker":2},"sRR":3,"sApo":0},"bretonnian":{"n":"Bretonia","rr":60,"apo":true,"bg":1,"tier":2,"rules":["Old World Classic"],"pos":[{"k":"bretonnian_squire","n":"Escudero","en":"Bretonnian Squire","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Forcejeo"},{"k":"bretonnian_knight_catcher","n":"Caballero Receptor","en":"Bretonnian Knight Catcher","ab":"CR","max":2,"cost":85,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"catch","sk":"Atrapar, Agallas, Nervios de Acero (Nerves of Steel)"},{"k":"bretonnian_knight_thrower","n":"Caballero Lanzador","en":"Bretonnian Knight Thrower","ab":"CL","max":2,"cost":80,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"throw","sk":"Agallas, Nervios de Acero (Nerves of Steel), Pasar"},{"k":"grail_knight","n":"Caballero del Grial","en":"Grail Knight","ab":"CG","max":2,"cost":95,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"10+","r":"blitz","sk":"Placar, Agallas, Pie Firme (Steady Footing)"}],"start":{"bretonnian_squire":5,"bretonnian_knight_catcher":2,"bretonnian_knight_thrower":2,"grail_knight":2},"sRR":3,"sApo":1},"chaos_chosen":{"n":"Elegidos del Caos","rr":50,"apo":true,"bg":1,"tier":2,"rules":["Favorito de…","Chaos Clash"],"pos":[{"k":"beastman_runner_lineman","n":"Hombre Bestia","en":"Beastman Runner Lineman","ab":"L","max":16,"cost":55,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"line","sk":"Cuernos (Horns), Cabeza Dura"},{"k":"chaos_chosen","n":"Elegido del Caos","en":"Chaos Chosen","ab":"EC","max":4,"cost":100,"ma":5,"st":4,"ag":"3+","pa":"5+","av":"10+","r":"line","sk":"Llave de Brazo (Arm Bar)"},{"k":"chaos_troll","n":"Troll del Caos","en":"Chaos Troll","ab":"TC","max":1,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Solitario (4+), Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"},{"k":"ogre","n":"Ogro del Caos","en":"Ogre","ab":"OC","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (4+), Lanzar Compañero"},{"k":"minotaur","n":"Minotauro","en":"Minotaur","ab":"M","max":1,"cost":150,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cuernos (Horns), Golpe Mortífero, Cabeza Dura, Solitario (4+), Ira Descontrolada"}],"start":{"beastman_runner_lineman":8,"chaos_chosen":2,"minotaur":1},"sRR":4,"sApo":0},"dark_elf":{"n":"Elfos Oscuros","rr":50,"apo":true,"bg":1,"tier":1,"rules":["Elven Kingdoms League"],"pos":[{"k":"dark_elf_lineman","n":"Línea","en":"Dark Elf Lineman","ab":"L","max":16,"cost":65,"ma":6,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"line","sk":""},{"k":"dark_elf_runner","n":"Corredor","en":"Dark Elf Runner","ab":"C","max":2,"cost":80,"ma":7,"st":3,"ag":"2+","pa":"3+","av":"8+","r":"catch","sk":"Pase Precipitado, Patada de Despeje"},{"k":"dark_elf_blitzer","n":"Blitzer","en":"Dark Elf Blitzer","ab":"B","max":2,"cost":105,"ma":7,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"blitz","sk":"Placar"},{"k":"dark_elf_assassin","n":"Asesino","en":"Dark Elf Assassin","ab":"A","max":2,"cost":90,"ma":7,"st":3,"ag":"2+","pa":"4+","av":"8+","r":"line","sk":"Perseguir, Apuñalar, Golpear y Correr"},{"k":"witch_elf","n":"Bruja Elfa","en":"Witch Elf","ab":"BE","max":2,"cost":110,"ma":7,"st":3,"ag":"2+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, En Pie de un Salto, Furia"}],"start":{"dark_elf_lineman":5,"dark_elf_runner":2,"dark_elf_blitzer":1,"dark_elf_assassin":1,"witch_elf":2},"sRR":2,"sApo":0},"wood_elf":{"n":"Elfos Silvanos","rr":50,"apo":true,"bg":1,"tier":1,"rules":["Elven Kingdoms League","Woodland League"],"pos":[{"k":"wood_elf_lineman","n":"Línea","en":"Wood Elf Lineman","ab":"L","max":16,"cost":65,"ma":7,"st":3,"ag":"2+","pa":"3+","av":"8+","r":"line","sk":""},{"k":"wood_elf_thrower","n":"Lanzador","en":"Wood Elf Thrower","ab":"Lz","max":2,"cost":85,"ma":7,"st":3,"ag":"2+","pa":"2+","av":"8+","r":"throw","sk":"Proteger el Cuero, Pasar"},{"k":"wood_elf_catcher","n":"Receptor","en":"Wood Elf Catcher","ab":"R","max":2,"cost":90,"ma":8,"st":2,"ag":"2+","pa":"3+","av":"8+","r":"catch","sk":"Atrapar, Esquivar, Esprintar"},{"k":"wardancer","n":"Danzante Guerrero","en":"Wardancer","ab":"DG","max":2,"cost":130,"ma":8,"st":3,"ag":"2+","pa":"3+","av":"8+","r":"blitz","sk":"Esquivar, Saltar, Placar"},{"k":"loren_forest_treeman","n":"Hombre Árbol","en":"Loren Forest Treeman","ab":"HÁ","max":1,"cost":120,"ma":2,"st":6,"ag":"5+","pa":"5+","av":"11+","r":"big","sk":"Golpe Mortífero, Mantenerse Firme, Brazo Fuerte, Cabeza Dura, Solitario (4+), Echar Raíces, Lanzar Compañero"}],"start":{"wood_elf_lineman":6,"wood_elf_thrower":2,"wood_elf_catcher":1,"wardancer":1,"loren_forest_treeman":1},"sRR":2,"sApo":0},"dwarf":{"n":"Enanos","rr":60,"apo":true,"bg":1,"tier":1,"rules":["Worlds Edge Superleague","Soborno y Corrupción","Brutos Peleones"],"pos":[{"k":"dwarf_blocker_lineman","n":"Línea","en":"Dwarf Blocker Lineman","ab":"L","max":16,"cost":70,"ma":4,"st":3,"ag":"4+","pa":"5+","av":"10+","r":"line","sk":"Rompe Defensas, Placar, Cabeza Dura"},{"k":"dwarf_runner","n":"Corredor","en":"Dwarf Runner","ab":"C","max":2,"cost":80,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"catch","sk":"Esprintar, Manos Seguras, Cabeza Dura"},{"k":"dwarf_blitzer","n":"Blitzer","en":"Dwarf Blitzer","ab":"B","max":2,"cost":100,"ma":5,"st":3,"ag":"4+","pa":"4+","av":"10+","r":"blitz","sk":"Placaje Heroico, Placar, Placaje Defensivo, Cabeza Dura"},{"k":"troll_slayer","n":"Matatrolls","en":"Troll Slayer","ab":"M","max":2,"cost":95,"ma":5,"st":3,"ag":"4+","pa":"5+","av":"9+","r":"line","sk":"Placar, Agallas, Furia, Cabeza Dura, Odio (Troll)"},{"k":"deathroller","n":"Apisonadora","en":"Deathroller","ab":"A","max":1,"cost":170,"ma":5,"st":7,"ag":"5+","pa":"–","av":"11+","r":"big","sk":"Jugar Sucio, Abrirse Paso, Imparable, Golpe Mortífero, Mantenerse Firme, Solitario (4+), Sin Manos, Arma Secreta"}],"start":{"dwarf_blocker_lineman":9,"dwarf_runner":1,"deathroller":1},"sRR":2,"sApo":0},"chaos_dwarf":{"n":"Enanos del Caos","rr":70,"apo":true,"bg":1,"tier":1,"rules":["Badlands Brawl","Favorito de…","Chaos Clash"],"pos":[{"k":"hobgoblin_lineman","n":"Hobgoblin","en":"Hobgoblin Lineman","ab":"L","max":16,"cost":40,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":""},{"k":"chaos_dwarf_blocker","n":"Enano del Caos","en":"Chaos Dwarf Blocker","ab":"EC","max":4,"cost":70,"ma":4,"st":3,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Placar, Piel de Hierro (Iron Hard Skin), Cabeza Dura"},{"k":"bull_centaur_blitzer","n":"Centauro Toro","en":"Bull Centaur Blitzer","ab":"CT","max":2,"cost":130,"ma":6,"st":4,"ag":"4+","pa":"6+","av":"10+","r":"blitz","sk":"Esprintar, Pies Seguros (Sure Feet), Cabeza Dura, Inestable"},{"k":"minotaur","n":"Minotauro","en":"Minotaur","ab":"M","max":1,"cost":150,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cuernos (Horns), Golpe Mortífero, Cabeza Dura, Solitario (4+), Ira Descontrolada"},{"k":"sneaky_stabba","n":"Apuñalador Furtivo","en":"Sneaky Stabba","ab":"AF","max":2,"cost":60,"ma":6,"st":3,"ag":"3+","pa":"5+","av":"8+","r":"line","sk":"Perseguir, Apuñalar"},{"k":"flamesmith","n":"Forjallamas","en":"Flamesmith","ab":"F","max":2,"cost":80,"ma":5,"st":3,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Presencia Perturbadora, Pendenciero (Brawler), Cabeza Dura, Aliento de Fuego (Breathe Fire)"}],"start":{"hobgoblin_lineman":4,"chaos_dwarf_blocker":1,"bull_centaur_blitzer":2,"minotaur":1,"sneaky_stabba":1,"flamesmith":2},"sRR":2,"sApo":0},"gnome":{"n":"Gnomos","rr":50,"apo":true,"bg":2,"tier":4,"rules":["Halfling Thimble Cup","Woodland League"],"pos":[{"k":"altern_forest_treeman","n":"Hombre Árbol","en":"Altern Forest Treeman","ab":"HÁ","max":2,"cost":120,"ma":2,"st":6,"ag":"5+","pa":"5+","av":"11+","r":"big","sk":"Golpe Mortífero, Mantenerse Firme, Brazo Fuerte, Cabeza Dura, Echar Raíces, ¡Timmmber! (Timmm-ber!), Lanzar Compañero"},{"k":"gnome_beastmaster","n":"Domador","en":"Gnome Beastmaster","ab":"D","max":2,"cost":55,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"stunty","sk":"En Pie de un Salto, Forcejeo, Defensa, Escurridizo"},{"k":"gnome_illusionist","n":"Ilusionista","en":"Gnome Illusionist","ab":"I","max":2,"cost":50,"ma":5,"st":2,"ag":"3+","pa":"3+","av":"7+","r":"stunty","sk":"En Pie de un Salto, Forcejeo, Escurridizo, Embaucador (Trickster)"},{"k":"woodland_fox","n":"Zorro del Bosque","en":"Woodland Fox","ab":"ZB","max":2,"cost":50,"ma":7,"st":2,"ag":"2+","pa":"–","av":"6+","r":"stunty","sk":"Esquivar, Echarse a un Lado, Escurridizo, Mi Balón (My Ball)"},{"k":"gnome_lineman","n":"Línea","en":"Gnome Lineman","ab":"L","max":16,"cost":40,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"7+","r":"line","sk":"En Pie de un Salto, Forcejeo, Humanoide Bala, Escurridizo"}],"start":{"altern_forest_treeman":1,"gnome_lineman":10},"sRR":4,"sApo":1},"goblin":{"n":"Goblins","rr":60,"apo":true,"bg":2,"tier":4,"rules":["Badlands Brawl","Underworld Challenge","Soborno y Corrupción"],"pos":[{"k":"goblin_lineman","n":"Línea","en":"Goblin Lineman","ab":"L","max":16,"cost":40,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"bomma","n":"Bombardero","en":"Bomma","ab":"B","max":1,"cost":45,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"stunty","sk":"Esquivar, Bombardero (Bombardier), Arma Secreta, Escurridizo"},{"k":"looney","n":"Lunático","en":"Looney","ab":"Lu","max":1,"cost":40,"ma":6,"st":2,"ag":"3+","pa":"–","av":"8+","r":"stunty","sk":"Motosierra (Chainsaw), Sin Manos, Arma Secreta, Escurridizo"},{"k":"pogoer","n":"Pogo","en":"Pogoer","ab":"P","max":1,"cost":75,"ma":7,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"stunty","sk":"Esquivar, Pogo (Pogo), Escurridizo"},{"k":"ooligan","n":"Hooligan","en":"'Ooligan","ab":"H","max":1,"cost":60,"ma":6,"st":2,"ag":"3+","pa":"5+","av":"8+","r":"stunty","sk":"Esquivar, Jugar Sucio, Presencia Perturbadora, Humanoide Bala, Escurridizo, Provocar"},{"k":"doom_diver","n":"Doom Diver","en":"Doom Diver","ab":"DD","max":1,"cost":65,"ma":6,"st":2,"ag":"3+","pa":"6+","av":"8+","r":"stunty","sk":"Esquivar, Humanoide Bala, Escurridizo, Planear (Swoop)"},{"k":"trained_troll","n":"Troll Adiestrado","en":"Trained Troll","ab":"TA","max":2,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"},{"k":"fanatic","n":"Fanático","en":"Fanatic","ab":"F","max":1,"cost":70,"ma":3,"st":7,"ag":"3+","pa":"–","av":"8+","r":"stunty","sk":"Bola y Cadena (Ball and Chain), Sin Manos, Arma Secreta, Escurridizo"}],"start":{"goblin_lineman":10,"trained_troll":1},"sRR":4,"sApo":1},"underworld_denizens":{"n":"Habitantes del Inframundo","rr":70,"apo":true,"bg":1,"tier":1,"rules":["Underworld Challenge","Soborno y Corrupción"],"pos":[{"k":"goblin_lineman","n":"Goblin","en":"Goblin Lineman","ab":"L","max":16,"cost":40,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"snotling_lineman","n":"Snotling","en":"Snotling Lineman","ab":"S","max":6,"cost":15,"ma":5,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"line","sk":"Esquivar, Echarse a un Lado, Humanoide Bala, Escurridizo, Canijo, Insignificante (Insignificant)"},{"k":"skaven_clanrat","n":"Rata de Clan","en":"Skaven Clanrat","ab":"RC","max":3,"cost":50,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Animosidad (Goblin)"},{"k":"skaven_thrower","n":"Lanzador","en":"Skaven Thrower","ab":"Lz","max":1,"cost":80,"ma":7,"st":3,"ag":"3+","pa":"2+","av":"8+","r":"throw","sk":"Manos Seguras, Pasar, Animosidad (Goblin)"},{"k":"gutter_runner","n":"Corredor de Cloacas","en":"Gutter Runner","ab":"CC","max":1,"cost":85,"ma":9,"st":2,"ag":"2+","pa":"4+","av":"8+","r":"catch","sk":"Esquivar, Animosidad (Goblin), Apuñalar"},{"k":"skaven_blitzer","n":"Blitzer","en":"Skaven Blitzer","ab":"B","max":1,"cost":90,"ma":8,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"blitz","sk":"Placar, Robar Balón, Animosidad (Goblin)"},{"k":"troll","n":"Troll","en":"Troll","ab":"T","max":1,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Solitario (4+), Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"},{"k":"rat_ogre","n":"Rata Ogro","en":"Rat Ogre","ab":"RO","max":1,"cost":150,"ma":6,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cola Prensil, Golpe Mortífero, Animal Feroz, Solitario (4+)"}],"start":{"goblin_lineman":2,"snotling_lineman":3,"skaven_clanrat":2,"skaven_thrower":1,"gutter_runner":1,"skaven_blitzer":1,"rat_ogre":1},"sRR":4,"sApo":1},"halfling":{"n":"Halflings","rr":60,"apo":true,"bg":2,"tier":4,"rules":["Halfling Thimble Cup","Woodland League"],"pos":[{"k":"halfling_hopeful","n":"Línea","en":"Halfling Hopeful","ab":"L","max":16,"cost":30,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"7+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"halfling_hefty","n":"Halfling Robusto","en":"Halfling Hefty","ab":"HR","max":2,"cost":50,"ma":5,"st":2,"ag":"3+","pa":"3+","av":"8+","r":"stunty","sk":"Esquivar, Rechazar (Fend), Escurridizo"},{"k":"halfling_catcher","n":"Receptor","en":"Halfling Catcher","ab":"R","max":2,"cost":55,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"7+","r":"stunty","sk":"Atrapar, Esquivar, Esprintar, Humanoide Bala, Escurridizo"},{"k":"altern_forest_treeman","n":"Hombre Árbol","en":"Altern Forest Treeman","ab":"HÁ","max":2,"cost":120,"ma":2,"st":6,"ag":"5+","pa":"5+","av":"11+","r":"big","sk":"Golpe Mortífero, Mantenerse Firme, Brazo Fuerte, Cabeza Dura, Echar Raíces, ¡Timmmber! (Timmm-ber!), Lanzar Compañero"}],"start":{"halfling_hopeful":10,"altern_forest_treeman":1},"sRR":4,"sApo":1},"lizardmen":{"n":"Hombres Lagarto","rr":70,"apo":true,"bg":1,"tier":1,"rules":["Lustrian Superleague"],"pos":[{"k":"skink_lineman","n":"Eslizón","en":"Skink Lineman","ab":"L","max":16,"cost":60,"ma":8,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Escurridizo"},{"k":"chameleon_skink","n":"Camaleón","en":"Chameleon Skink","ab":"C","max":2,"cost":70,"ma":7,"st":2,"ag":"3+","pa":"3+","av":"8+","r":"stunty","sk":"Esquivar, Perseguir, Atento al Balón, Escurridizo"},{"k":"saurus_blocker","n":"Saurio","en":"Saurus Blocker","ab":"S","max":6,"cost":90,"ma":6,"st":4,"ag":"5+","pa":"6+","av":"10+","r":"line","sk":"Imparable, Inestable"},{"k":"kroxigor","n":"Kroxigor","en":"Kroxigor","ab":"K","max":1,"cost":140,"ma":6,"st":5,"ag":"5+","pa":"6+","av":"10+","r":"big","sk":"Cola Prensil, Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (4+)"}],"start":{"skink_lineman":8,"saurus_blocker":2,"kroxigor":1},"sRR":2,"sApo":1},"human":{"n":"Humanos","rr":50,"apo":true,"bg":1,"tier":2,"rules":["Old World Classic","Capitán del Equipo"],"pos":[{"k":"human_lineman","n":"Línea","en":"Human Lineman","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"line","sk":""},{"k":"human_thrower","n":"Lanzador","en":"Human Thrower","ab":"Lz","max":2,"cost":75,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"throw","sk":"Manos Seguras, Pasar"},{"k":"human_catcher","n":"Receptor","en":"Human Catcher","ab":"R","max":2,"cost":75,"ma":8,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"catch","sk":"Atrapar, Esquivar"},{"k":"human_blitzer","n":"Blitzer","en":"Human Blitzer","ab":"B","max":2,"cost":85,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"blitz","sk":"Placar, Placaje Defensivo"},{"k":"halfling_hopeful","n":"Halfling","en":"Halfling Hopeful","ab":"H","max":3,"cost":30,"ma":5,"st":2,"ag":"3+","pa":"4+","av":"7+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"ogre","n":"Ogro","en":"Ogre","ab":"O","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (3+), Lanzar Compañero"}],"start":{"human_lineman":2,"human_thrower":2,"human_catcher":2,"human_blitzer":2,"halfling_hopeful":2,"ogre":1},"sRR":4,"sApo":0},"khorne":{"n":"Khorne","rr":60,"apo":true,"bg":1,"tier":3,"rules":["Favorito de…","Brutos Peleones","Chaos Clash"],"pos":[{"k":"bloodborn_marauder","n":"Merodeador","en":"Bloodborn Marauder","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Furia"},{"k":"khorngor","n":"Khorngor","en":"Khorngor","ab":"K","max":2,"cost":70,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"catch","sk":"En Pie de un Salto, Cuernos (Horns), Imparable, Cabeza Dura"},{"k":"bloodseeker","n":"Buscasangre","en":"Bloodseeker","ab":"B","max":4,"cost":105,"ma":5,"st":4,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Furia"},{"k":"bloodspawn","n":"Engendro de Sangre","en":"Bloodspawn","ab":"ES","max":1,"cost":160,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Garras, Golpe Mortífero, Solitario (4+), Ira Descontrolada"}],"start":{"bloodborn_marauder":6,"khorngor":2,"bloodseeker":2,"bloodspawn":1},"sRR":3,"sApo":0},"necromantic_horror":{"n":"Nigromantes","rr":70,"apo":false,"bg":1,"tier":1,"rules":["Sylvanian Spotlight","Señores de los No Muertos"],"pos":[{"k":"zombie_lineman","n":"Zombi","en":"Zombie Lineman","ab":"L","max":16,"cost":40,"ma":4,"st":3,"ag":"4+","pa":"6+","av":"9+","r":"line","sk":"Regeneración, Piquete de Ojos, Inestable"},{"k":"ghoul_runner","n":"Necrófago","en":"Ghoul Runner","ab":"N","max":2,"cost":75,"ma":7,"st":3,"ag":"3+","pa":"3+","av":"8+","r":"catch","sk":"Esquivar, Regeneración"},{"k":"wraith","n":"Espectro","en":"Wraith","ab":"E","max":2,"cost":85,"ma":6,"st":3,"ag":"3+","pa":"–","av":"9+","r":"line","sk":"Echarse a un Lado, Placar, Apariencia Repugnante (Foul Appearance), Sin Manos, Regeneración"},{"k":"werewolf","n":"Hombre Lobo","en":"Werewolf","ab":"HL","max":2,"cost":120,"ma":8,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"blitz","sk":"Furia, Garras, Regeneración"},{"k":"flesh_golem","n":"Gólem de Carne","en":"Flesh Golem","ab":"GC","max":2,"cost":110,"ma":4,"st":4,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Mantenerse Firme, Cabeza Dura, Regeneración, Inestable"}],"start":{"zombie_lineman":4,"ghoul_runner":2,"wraith":1,"werewolf":2,"flesh_golem":2},"sRR":2,"sApo":0},"shambling_undead":{"n":"No-Muertos","rr":70,"apo":false,"bg":1,"tier":1,"rules":["Sylvanian Spotlight","Señores de los No Muertos"],"pos":[{"k":"skeleton_lineman","n":"Esqueleto","en":"Skeleton Lineman","ab":"L","max":16,"cost":40,"ma":5,"st":3,"ag":"4+","pa":"6+","av":"8+","r":"line","sk":"Cabeza Dura, Regeneración"},{"k":"zombie_lineman","n":"Zombi","en":"Zombie Lineman","ab":"Z","max":16,"cost":40,"ma":4,"st":3,"ag":"4+","pa":"6+","av":"9+","r":"line","sk":"Regeneración, Piquete de Ojos, Inestable"},{"k":"ghoul_runner","n":"Necrófago","en":"Ghoul Runner","ab":"N","max":2,"cost":75,"ma":7,"st":3,"ag":"3+","pa":"3+","av":"8+","r":"catch","sk":"Esquivar, Regeneración"},{"k":"wight_blitzer","n":"Tumulario","en":"Wight Blitzer","ab":"T","max":2,"cost":95,"ma":6,"st":3,"ag":"3+","pa":"5+","av":"9+","r":"blitz","sk":"Placar, Placaje Defensivo, Cabeza Dura, Regeneración"},{"k":"mummy","n":"Momia","en":"Mummy","ab":"M","max":2,"cost":125,"ma":3,"st":5,"ag":"5+","pa":"6+","av":"10+","r":"big","sk":"Golpe Mortífero, Regeneración"}],"start":{"skeleton_lineman":4,"zombie_lineman":2,"ghoul_runner":2,"wight_blitzer":2,"mummy":1},"sRR":4,"sApo":0},"imperial_nobility":{"n":"Nobleza Imperial","rr":60,"apo":true,"bg":1,"tier":3,"rules":["Old World Classic"],"pos":[{"k":"imperial_retainer","n":"Línea","en":"Imperial Retainer","ab":"L","max":16,"cost":45,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Rechazar (Fend)"},{"k":"imperial_thrower","n":"Lanzador","en":"Imperial Thrower","ab":"Lz","max":2,"cost":75,"ma":6,"st":3,"ag":"3+","pa":"2+","av":"9+","r":"throw","sk":"Profesional, Pasar, Pasar y Correr (Give and Go)"},{"k":"noble_blitzer","n":"Blitzer Noble","en":"Noble Blitzer","ab":"BN","max":2,"cost":90,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"blitz","sk":"Atrapar, Placar, Profesional"},{"k":"bodyguard","n":"Guardaespaldas","en":"Bodyguard","ab":"G","max":4,"cost":85,"ma":5,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"line","sk":"Forcejeo, Mantenerse Firme"},{"k":"ogre","n":"Ogro","en":"Ogre","ab":"O","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (3+), Lanzar Compañero"}],"start":{"imperial_retainer":4,"imperial_thrower":2,"noble_blitzer":2,"bodyguard":2,"ogre":1},"sRR":3,"sApo":0},"nurgle":{"n":"Nurgle","rr":60,"apo":false,"bg":1,"tier":2,"rules":["Favorito de…","Brutos Peleones","Chaos Clash"],"pos":[{"k":"rotter_lineman","n":"Podrido","en":"Rotter Lineman","ab":"L","max":16,"cost":40,"ma":5,"st":3,"ag":"4+","pa":"6+","av":"9+","r":"line","sk":"Putrefacción (Decay), Portador de Plaga (Plague Ridden)"},{"k":"pestigor","n":"Pestigor","en":"Pestigor","ab":"P","max":2,"cost":70,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"catch","sk":"Cuernos (Horns), Cabeza Dura, Portador de Plaga (Plague Ridden), Regeneración, Pie Firme (Steady Footing)"},{"k":"bloater","n":"Hinchado","en":"Bloater","ab":"H","max":4,"cost":110,"ma":4,"st":4,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Presencia Perturbadora, Apariencia Repugnante (Foul Appearance), Mantenerse Firme, Portador de Plaga (Plague Ridden), Regeneración, Inestable"},{"k":"rotspawn","n":"Engendro Pútrido","en":"Rotspawn","ab":"EP","max":1,"cost":140,"ma":4,"st":5,"ag":"5+","pa":"6+","av":"10+","r":"big","sk":"Presencia Perturbadora, Apariencia Repugnante (Foul Appearance), Tentáculos (Tentacles), Golpe Mortífero, Solitario (4+), Portador de Plaga (Plague Ridden), Realmente Estúpido, Regeneración, Bebida Reconstituyente"}],"start":{"rotter_lineman":6,"pestigor":2,"bloater":2,"rotspawn":1},"sRR":4,"sApo":0},"norse":{"n":"Nórdicos","rr":60,"apo":true,"bg":1,"tier":2,"rules":["Old World Classic","Favorito de…","Chaos Clash"],"pos":[{"k":"norse_raider","n":"Línea","en":"Norse Raider","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Placar, Cabeza Dura, Borracho, Inestable"},{"k":"norse_berserker","n":"Berserker","en":"Norse Berserker","ab":"B","max":2,"cost":90,"ma":6,"st":3,"ag":"3+","pa":"5+","av":"8+","r":"blitz","sk":"En Pie de un Salto, Placar, Furia"},{"k":"ulfwerener","n":"Ulfwerener","en":"Ulfwerener","ab":"U","max":2,"cost":105,"ma":6,"st":4,"ag":"4+","pa":"6+","av":"9+","r":"line","sk":"Furia, Inestable"},{"k":"yhetee","n":"Yhetee","en":"Yhetee","ab":"Y","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Garras, Presencia Perturbadora, Solitario (4+), Ira Descontrolada"},{"k":"beer_boar","n":"Cerdo Cervecero","en":"Beer Boar","ab":"CC","max":2,"cost":20,"ma":5,"st":1,"ag":"3+","pa":"–","av":"6+","r":"stunty","sk":"Esquivar, Sin Manos, Escurridizo, Canijo, Bebida Reconstituyente"},{"k":"valkyrie","n":"Valquiria","en":"Valkyrie","ab":"V","max":2,"cost":95,"ma":7,"st":3,"ag":"3+","pa":"3+","av":"8+","r":"throw","sk":"Atrapar, Agallas, Robar Balón, Pasar"}],"start":{"norse_raider":5,"norse_berserker":1,"ulfwerener":2,"yhetee":1,"valkyrie":2},"sRR":2,"sApo":0},"ogre":{"n":"Ogros","rr":70,"apo":true,"bg":6,"tier":4,"rules":["Badlands Brawl","Worlds Edge Superleague","Líneas de bajo coste","Brutos Peleones"],"pos":[{"k":"gnoblar_lineman","n":"Gnoblar","en":"Gnoblar Lineman","ab":"L","max":16,"cost":15,"ma":5,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"line","sk":"Esquivar, Echarse a un Lado, Humanoide Bala, Escurridizo, Canijo"},{"k":"ogre_runt_punter","n":"Ogro Pateador","en":"Ogre Runt Punter","ab":"OP","max":1,"cost":145,"ma":5,"st":5,"ag":"4+","pa":"4+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Patear Compañero (Kick Team-mate)"},{"k":"ogre_blocker","n":"Ogro","en":"Ogre Blocker","ab":"O","max":5,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Lanzar Compañero"}],"start":{"gnoblar_lineman":8,"ogre_runt_punter":1,"ogre_blocker":2},"sRR":4,"sApo":1},"orc":{"n":"Orcos","rr":60,"apo":true,"bg":1,"tier":1,"rules":["Badlands Brawl","Brutos Peleones","Capitán del Equipo"],"pos":[{"k":"orc_lineman","n":"Línea","en":"Orc Lineman","ab":"L","max":16,"cost":50,"ma":5,"st":3,"ag":"3+","pa":"4+","av":"10+","r":"line","sk":""},{"k":"orc_thrower","n":"Lanzador","en":"Orc Thrower","ab":"Lz","max":2,"cost":75,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"throw","sk":"Manos Seguras, Pasar"},{"k":"orc_blitzer","n":"Blitzer","en":"Orc Blitzer","ab":"B","max":2,"cost":85,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"10+","r":"blitz","sk":"Placar, Abrirse Paso"},{"k":"big_un_blocker","n":"Orco Grandote","en":"Big Un Blocker","ab":"OG","max":2,"cost":95,"ma":5,"st":4,"ag":"4+","pa":"6+","av":"10+","r":"line","sk":"Golpe Mortífero, Cabeza Dura, Provocar, Inestable"},{"k":"goblin_lineman","n":"Goblin","en":"Goblin Lineman","ab":"G","max":4,"cost":40,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Humanoide Bala, Escurridizo"},{"k":"troll","n":"Troll","en":"Troll","ab":"T","max":1,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Solitario (4+), Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"}],"start":{"orc_lineman":2,"orc_thrower":2,"orc_blitzer":2,"big_un_blocker":2,"goblin_lineman":2,"troll":1},"sRR":3,"sApo":0},"black_orc":{"n":"Orcos Negros","rr":60,"apo":true,"bg":1,"tier":2,"rules":["Badlands Brawl","Soborno y Corrupción","Brutos Peleones"],"pos":[{"k":"goblin_bruiser","n":"Goblin Matón","en":"Goblin Bruiser","ab":"L","max":16,"cost":45,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Cabeza Dura, Humanoide Bala, Escurridizo"},{"k":"black_orc","n":"Orco Negro","en":"Black Orc","ab":"ON","max":6,"cost":90,"ma":4,"st":4,"ag":"4+","pa":"5+","av":"10+","r":"line","sk":"Pendenciero (Brawler), Apartar"},{"k":"trained_troll","n":"Troll Adiestrado","en":"Trained Troll","ab":"TA","max":1,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"}],"start":{"goblin_bruiser":8,"black_orc":2,"trained_troll":1},"sRR":4,"sApo":1},"chaos_renegade":{"n":"Renegados del Caos","rr":70,"apo":true,"bg":3,"tier":3,"rules":["Favorito de…","Chaos Clash"],"pos":[{"k":"renegade_human","n":"Humano Renegado","en":"Renegade Human","ab":"L","max":16,"cost":50,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"9+","r":"line","sk":"Animosidad (todos)"},{"k":"renegade_human_thrower","n":"Lanzador Renegado","en":"Renegade Human Thrower","ab":"Lz","max":1,"cost":75,"ma":6,"st":3,"ag":"3+","pa":"3+","av":"9+","r":"throw","sk":"Manos Seguras, Pasar, Animosidad (todos)"},{"k":"renegade_goblin","n":"Goblin Renegado","en":"Renegade Goblin","ab":"GR","max":1,"cost":40,"ma":6,"st":2,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Esquivar, Animosidad (todos), Humanoide Bala, Escurridizo"},{"k":"renegade_orc","n":"Orco Renegado","en":"Renegade Orc","ab":"OR","max":1,"cost":50,"ma":5,"st":3,"ag":"3+","pa":"4+","av":"10+","r":"line","sk":"Animosidad (todos)"},{"k":"renegade_skaven","n":"Skaven Renegado","en":"Renegade Skaven","ab":"SR","max":1,"cost":50,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":"Animosidad (todos)"},{"k":"renegade_dark_elf","n":"Elfo Oscuro Renegado","en":"Renegade Dark Elf","ab":"EO","max":1,"cost":65,"ma":6,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"line","sk":"Animosidad (todos)"},{"k":"troll","n":"Troll","en":"Troll","ab":"T","max":1,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Solitario (4+), Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"},{"k":"ogre","n":"Ogro","en":"Ogre","ab":"O","max":1,"cost":140,"ma":5,"st":5,"ag":"4+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Cabeza Dura, Estúpido, Solitario (3+), Lanzar Compañero"},{"k":"minotaur","n":"Minotauro","en":"Minotaur","ab":"M","max":1,"cost":150,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cuernos (Horns), Golpe Mortífero, Cabeza Dura, Solitario (4+), Ira Descontrolada"},{"k":"rat_ogre","n":"Rata Ogro","en":"Rat Ogre","ab":"RO","max":1,"cost":150,"ma":6,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cola Prensil, Golpe Mortífero, Animal Feroz, Solitario (4+)"}],"start":{"renegade_human":4,"renegade_goblin":1,"renegade_orc":1,"renegade_skaven":1,"renegade_dark_elf":1,"ogre":1,"minotaur":1,"rat_ogre":1},"sRR":2,"sApo":0},"tomb_kings":{"n":"Reyes Funerarios","rr":60,"apo":false,"bg":1,"tier":2,"rules":["Sylvanian Spotlight","Señores de los No Muertos"],"pos":[{"k":"skeleton_lineman","n":"Esqueleto","en":"Skeleton Lineman","ab":"L","max":16,"cost":40,"ma":5,"st":3,"ag":"4+","pa":"6+","av":"8+","r":"line","sk":"Cabeza Dura, Regeneración"},{"k":"tomb_kings_thrower","n":"Lanzador","en":"Tomb Kings Thrower","ab":"Lz","max":2,"cost":65,"ma":6,"st":3,"ag":"4+","pa":"3+","av":"9+","r":"throw","sk":"Manos Seguras, Pasar, Cabeza Dura, Regeneración"},{"k":"tomb_kings_blitzer","n":"Blitzer","en":"Tomb Kings Blitzer","ab":"B","max":2,"cost":85,"ma":6,"st":3,"ag":"4+","pa":"5+","av":"9+","r":"blitz","sk":"Placar, Cabeza Dura, Regeneración"},{"k":"tomb_guardian","n":"Guardián de la Tumba","en":"Tomb Guardian","ab":"GT","max":4,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"6+","av":"10+","r":"big","sk":"Pendenciero (Brawler), Putrefacción (Decay), Regeneración"}],"start":{"skeleton_lineman":6,"tomb_kings_thrower":2,"tomb_kings_blitzer":2,"tomb_guardian":1},"sRR":4,"sApo":0},"skaven":{"n":"Skavens","rr":50,"apo":true,"bg":1,"tier":1,"rules":["Underworld Challenge"],"pos":[{"k":"skaven_clanrat","n":"Rata de Clan","en":"Skaven Clanrat","ab":"L","max":16,"cost":50,"ma":7,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":""},{"k":"skaven_thrower","n":"Lanzador","en":"Skaven Thrower","ab":"Lz","max":2,"cost":80,"ma":7,"st":3,"ag":"3+","pa":"2+","av":"8+","r":"throw","sk":"Manos Seguras, Pasar"},{"k":"gutter_runner","n":"Corredor de Cloacas","en":"Gutter Runner","ab":"CC","max":2,"cost":85,"ma":9,"st":2,"ag":"2+","pa":"4+","av":"8+","r":"catch","sk":"Esquivar, Apuñalar"},{"k":"blitzer","n":"Blitzer","en":"Blitzer","ab":"B","max":2,"cost":90,"ma":8,"st":3,"ag":"3+","pa":"5+","av":"9+","r":"blitz","sk":"Placar, Robar Balón"},{"k":"rat_ogre","n":"Rata Ogro","en":"Rat Ogre","ab":"RO","max":1,"cost":150,"ma":6,"st":5,"ag":"4+","pa":"6+","av":"9+","r":"big","sk":"Furia, Cola Prensil, Golpe Mortífero, Animal Feroz, Solitario (4+)"}],"start":{"skaven_clanrat":4,"skaven_thrower":2,"gutter_runner":2,"blitzer":2,"rat_ogre":1},"sRR":2,"sApo":0},"snotling":{"n":"Snotlings","rr":70,"apo":true,"bg":4,"tier":4,"rules":["Underworld Challenge","Soborno y Corrupción","Líneas de bajo coste","Enjambre"],"pos":[{"k":"snotling_lineman","n":"Snotling","en":"Snotling Lineman","ab":"L","max":16,"cost":15,"ma":5,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"line","sk":"Esquivar, Echarse a un Lado, Humanoide Bala, Escurridizo, Canijo, Insignificante (Insignificant)"},{"k":"fungus_flinga","n":"Lanzahongos","en":"Fungus Flinga","ab":"La","max":2,"cost":30,"ma":5,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"stunty","sk":"Esquivar, Echarse a un Lado, Bombardero (Bombardier), Humanoide Bala, Arma Secreta, Escurridizo, Canijo"},{"k":"fun_hoppa","n":"Saltarín","en":"Fun-hoppa","ab":"S","max":2,"cost":20,"ma":6,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"stunty","sk":"Esquivar, Echarse a un Lado, Pogo (Pogo), Humanoide Bala, Escurridizo"},{"k":"stilty_runna","n":"Zancudo","en":"Stilty Runna","ab":"Z","max":2,"cost":20,"ma":6,"st":1,"ag":"3+","pa":"4+","av":"6+","r":"stunty","sk":"Esquivar, Echarse a un Lado, Esprintar, Humanoide Bala, Escurridizo"},{"k":"pump_wagon","n":"Carro Bomba","en":"Pump Wagon","ab":"CB","max":2,"cost":100,"ma":5,"st":5,"ag":"5+","pa":"6+","av":"9+","r":"big","sk":"Jugar Sucio, Imparable, Golpe Mortífero, Mantenerse Firme, Realmente Estúpido"},{"k":"trained_troll","n":"Troll Adiestrado","en":"Trained Troll","ab":"TA","max":2,"cost":115,"ma":4,"st":5,"ag":"5+","pa":"5+","av":"10+","r":"big","sk":"Golpe Mortífero, Siempre Hambriento, Proyectil Vómito, Realmente Estúpido, Regeneración, Lanzar Compañero"}],"start":{"snotling_lineman":7,"pump_wagon":2,"trained_troll":2},"sRR":4,"sApo":1},"elven_union":{"n":"Unión Élfica","rr":50,"apo":true,"bg":1,"tier":2,"rules":["Elven Kingdoms League"],"pos":[{"k":"elf_lineman","n":"Línea","en":"Elf Lineman","ab":"L","max":12,"cost":65,"ma":6,"st":3,"ag":"2+","pa":"3+","av":"8+","r":"line","sk":"Fumblerooski (Fumblerooski)"},{"k":"elf_thrower","n":"Lanzador","en":"Elf Thrower","ab":"Lz","max":2,"cost":75,"ma":6,"st":3,"ag":"2+","pa":"2+","av":"8+","r":"throw","sk":"Pase a la Desesperada (Hail Mary Pass), Pasar"},{"k":"elf_catcher","n":"Receptor","en":"Elf Catcher","ab":"R","max":2,"cost":100,"ma":8,"st":3,"ag":"2+","pa":"4+","av":"8+","r":"catch","sk":"Atrapar, Recepción Heroica (Diving Catch), Nervios de Acero (Nerves of Steel)"},{"k":"elf_blitzer","n":"Blitzer","en":"Elf Blitzer","ab":"B","max":2,"cost":115,"ma":7,"st":3,"ag":"2+","pa":"3+","av":"9+","r":"blitz","sk":"Echarse a un Lado, Placar"}],"start":{"elf_lineman":6,"elf_thrower":1,"elf_catcher":2,"elf_blitzer":2},"sRR":2,"sApo":0},"vampire":{"n":"Vampiros","rr":60,"apo":true,"bg":1,"tier":2,"rules":["Sylvanian Spotlight","Señores de los No Muertos"],"pos":[{"k":"thrall_lineman","n":"Siervo","en":"Thrall Lineman","ab":"L","max":16,"cost":40,"ma":6,"st":3,"ag":"3+","pa":"4+","av":"8+","r":"line","sk":""},{"k":"vampire_runner","n":"Corredor Vampiro","en":"Vampire Runner","ab":"CV","max":2,"cost":100,"ma":8,"st":3,"ag":"2+","pa":"3+","av":"8+","r":"catch","sk":"Mirada Hipnótica (Hypnotic Gaze), Regeneración, Sed de Sangre (Bloodlust) (2+)"},{"k":"vampire_thrower","n":"Lanzador Vampiro","en":"Vampire Thrower","ab":"Lz","max":2,"cost":110,"ma":6,"st":4,"ag":"2+","pa":"2+","av":"9+","r":"throw","sk":"Pasar, Mirada Hipnótica (Hypnotic Gaze), Regeneración, Sed de Sangre (Bloodlust) (2+)"},{"k":"vampire_blitzer","n":"Blitzer Vampiro","en":"Vampire Blitzer","ab":"BV","max":2,"cost":110,"ma":6,"st":4,"ag":"2+","pa":"4+","av":"9+","r":"blitz","sk":"Imparable, Mirada Hipnótica (Hypnotic Gaze), Regeneración, Sed de Sangre (Bloodlust) (3+)"},{"k":"vargheist","n":"Vargheist","en":"Vargheist","ab":"V","max":1,"cost":150,"ma":5,"st":5,"ag":"4+","pa":"6+","av":"10+","r":"big","sk":"Furia, Garras, Solitario (4+), Regeneración, Sed de Sangre (Bloodlust) (3+)"}],"start":{"thrall_lineman":5,"vampire_runner":2,"vampire_thrower":2,"vampire_blitzer":1,"vargheist":1},"sRR":2,"sApo":0}};
-
-const TABLES={
-  weather:{n:'Clima',dice:[6,6],rows:[[2,2,'Calor sofocante','Al final de cada drive, D3 jugadores al azar de cada equipo que estaban en el campo van a reservas y no salen en el siguiente drive.'],
-    [3,3,'Muy soleado','−1 a los chequeos de pase.'],[4,10,'Condiciones perfectas','Sin efectos.'],
-    [11,11,'Lluvia torrencial','−1 para recoger, atrapar o interceptar el balón.'],[12,12,'Ventisca','−1 a cada Rush y solo se permiten pases rápidos o cortos.']]},
-  kickoff:{n:'Evento de patada',dice:[6,6],rows:[[2,2,'¡A por el árbitro!','Cada equipo recibe un soborno gratis que se pierde si no lo usa en el partido.'],
-    [3,3,'Tiempo muerto','Si el que patea está en el turno 6, 7 u 8, ambos marcadores retroceden uno; si no, avanzan uno.'],
-    [4,4,'Defensa sólida','El que patea retira hasta D3+3 jugadores libres y los vuelve a desplegar.'],
-    [5,5,'Patada alta','Un jugador libre del receptor puede colocarse donde caerá el balón.'],
-    [6,6,'Afición animando','D6 + animadoras: el mayor (o ambos si empatan) suma una asistencia ofensiva al primer placaje de su siguiente turno.'],
-    [7,7,'Entrenamiento brillante','D6 + ayudantes: el mayor (o ambos si empatan) gana un re-roll extra solo para este drive.'],
-    [8,8,'Cambio de clima','Nueva tirada de clima; si sale Condiciones perfectas, el balón se desvía 3 en el aire.'],
-    [9,9,'¡Saque rápido!','El receptor mueve hasta D3+3 jugadores libres una casilla en cualquier dirección.'],
-    [10,10,'¡Carga!','El que patea activa hasta D3+3 jugadores libres con un Move gratis (uno puede Blitz, uno lanzar y uno patear compañero). Si alguno cae, se acaba.'],
-    [11,11,'Tentempié dudoso','D6 cada uno; el menor elige un jugador al azar del campo: con 2+ pierde 1 MA y 1 AV este drive, con 1 se va a reservas.'],
-    [12,12,'Invasión de campo','D6 + Fan Factor; el menor elige D3 jugadores al azar del campo, que quedan derribados y aturdidos.']]},
-  injury:{n:'Herida',dice:[6,6],rows:[[2,7,'Aturdido','Queda boca abajo en su casilla.'],[8,9,'KO','Al cajón de KO del banquillo.'],[10,12,'Lesión','Al cajón de lesionados; el rival tira en la tabla de lesiones (D16).']]},
-  casualty:{n:'Lesión',dice:[16],rows:[[1,8,'Malherido','Sin efectos a largo plazo.'],[9,10,'Gravemente herido','Se pierde el próximo partido.'],
-    [11,12,'Lesión grave','Lesión persistente y se pierde el próximo partido.'],[13,14,'Lesión permanente','Pierde una característica (tira D6) y el próximo partido.'],[15,16,'Muerto','Fin de su carrera.']]},
-  lasting:{n:'Lesión permanente',dice:[6],rows:[[1,2,'Cabeza','−1 AV'],[3,3,'Rodilla','−1 MA'],[4,4,'Brazo','−1 PA'],[5,5,'Cadera','−1 AG'],[6,6,'Hombro','−1 ST']]}
-};
-
-const KEY='bb-mesa-bb2025-v4';
-const W=15,H=26;
-const DIRS={1:[-1,-1],2:[0,-1],3:[1,-1],4:[-1,0],5:[1,0],6:[-1,1],7:[0,1],8:[1,1]};
-const ARROW={1:'↖',2:'↑',3:'↗',4:'←',5:'→',6:'↙',7:'↓',8:'↘'};
-const SPECIAL=[['blitz','Blitz'],['pass','Pase'],['hand','Entrega'],['foul','Falta'],['ttm','Lanzar comp.']];
-let S, sel=null, hist=[], diceLog=[], openSheet=null, pendingToast=null;
-
-const uid=()=>Math.random().toString(36).slice(2,9);
-const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const rnd=n=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%n+1;};
-const inPitch=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
-const inHalf=(t,y)=>t===0?y>=13:y<=12;
-const losRow=t=>t===0?13:12;
-const scoreRow=t=>t===0?0:H-1;
-const recv=()=>1-S.kicker;
-
-function mkPlayer(posk,num){return {id:uid(),k:posk,num,st:'reserve',x:0,y:0,prone:false,stun:false,stunAt:-1,act:false,mv:0};}
-function startRoster(T){const R=RACES[T.race];let n=1;T.players=[];
-  R.pos.forEach(p=>{for(let i=0;i<(R.start[p.k]||0);i++)T.players.push(mkPlayer(p.k,n++));});
-  T.rrMax=T.rr=R.sRR;T.apo=R.apo?R.sApo:0;T.asst=0;T.cheer=0;}
-function mkTeam(race,color){const T={name:RACES[race].n,race,color,players:[],score:0,rr:0,rrMax:0,turn:0,df:1,ff:null,apo:0,apoUsed:false,asst:0,cheer:0};startRoster(T);return T;}
-function teamCost(T){const R=RACES[T.race];let c=0;T.players.forEach(p=>{c+=(R.pos.find(q=>q.k===p.k)||{cost:0}).cost;});
-  return c+T.rrMax*R.rr+(T.apo?50:0)+T.asst*10+T.cheer*10;}
-function teamCheck(T){const n=T.players.length,c=teamCost(T);
-  return {n,c,ok:n>=11&&n<=16&&c<=S.budget,items:[{ok:n>=11&&n<=16,t:`${n} jugadores (11–16)`},{ok:c<=S.budget,t:`${c}k de ${S.budget}k`}]};}
-function fresh(){return {teams:[mkTeam('human',0),mkTeam('orc',1)],ball:null,carrier:null,active:0,half:1,gturn:0,
-  phase:'pre_teams',budget:1000,kicker:null,firstKicker:null,coin:null,weather:null,kick:{},used:{},drive:null,lastScorer:null,halfOver:false};}
-function load(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(o&&o.teams&&o.phase)return o;}}catch(e){}return fresh();}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-function commit(fn){hist.push(JSON.stringify(S));if(hist.length>80)hist.shift();const ph=S.phase;fn();if(S.phase==='turn')checkTD();if(S.phase!==ph)sel=null;save();render();
-  if(pendingToast){toast(pendingToast);pendingToast=null;}}
-function undo(){if(!hist.length)return;S=JSON.parse(hist.pop());save();
-  if(sel&&sel.type==='p'&&!findP(sel.id))sel=null;render();toast('Deshecho');}
-
-// ---------- Ayudantes ----------
-const posOf=p=>{const R=RACES[S.teams[p.t].race];return R.pos.find(q=>q.k===p.k)||R.pos[0];};
-function allP(){const out=[];S.teams.forEach((t,ti)=>t.players.forEach(p=>{p.t=ti;out.push(p);}));return out;}
-function findP(id){return allP().find(p=>p.id===id);}
-function at(x,y){return allP().find(p=>p.st==='pitch'&&p.x===x&&p.y===y);}
-function ballPos(){if(S.carrier){const p=findP(S.carrier);if(p&&p.st==='pitch')return {x:p.x,y:p.y};}return S.ball;}
-function dropBall(p){if(S.carrier===p.id){S.carrier=null;S.ball={x:p.x,y:p.y};}}
-function col(ti){return COLORS[S.teams[ti].color]||COLORS[0];}
-function role(t){return S.kicker==null?'':t===S.kicker?'Patea':'Recibe';}
-function tokenHTML(p,extra=''){
-  const q=posOf(p),c=col(p.t);
-  const cls=['tk',q.r==='big'?'big':'',p.stun?'stun':p.prone?'prone':'',p.act?'act':'',extra].join(' ');
-  return `<div class="${cls}" style="--c:${c.c};--t:${c.t}"><span>${esc(q.ab)}</span>${S.carrier===p.id?'<i class="bc"></i>':''}</div>`;
-}
-function setStatus(p,st){dropBall(p);p.st=st;p.prone=false;p.stun=false;p.act=false;p.mv=0;}
-function setupTeam(){return S.phase==='setup_kick'?S.kicker:S.phase==='setup_recv'?recv():null;}
-function focusTeam(){
-  if(S.phase==='turn')return S.active;
-  const st=setupTeam();if(st!=null)return st;
-  if(S.phase.startsWith('kick'))return S.kicker;
-  return null;
-}
-function rollWeather(){const a=rnd(6),b=rnd(6),tot=a+b,row=TABLES.weather.rows.find(r=>tot>=r[0]&&tot<=r[1]);return {a,b,tot,t:row[2],d:row[3]};}
-const dv=(n,cls='')=>`<span class="dv ${cls}">${n}</span>`;
-
-function setupCheck(t){
-  const T=S.teams[t];T.players.forEach(p=>p.t=t);
-  const avail=T.players.filter(p=>p.st==='pitch'||p.st==='reserve').length,need=Math.min(11,avail);
-  const on=T.players.filter(p=>p.st==='pitch');
-  const los=on.filter(p=>p.y===losRow(t)&&p.x>=4&&p.x<=10).length,needLos=Math.min(3,need);
-  const wl=on.filter(p=>p.x<=3).length,wr=on.filter(p=>p.x>=11).length;
-  const items=[{ok:on.length===need,t:`Jugadores ${on.length}/${need}`,e:`Coloca ${need} jugadores (llevas ${on.length})`},
-    {ok:los>=needLos,t:`Línea central ${los}/${needLos}`,e:`Pon al menos ${needLos} en la línea de scrimmage, fuera de las bandas`},
-    {ok:wl<=2,t:`Banda izq. ${wl}/2`,e:'Máximo 2 jugadores en la banda izquierda'},
-    {ok:wr<=2,t:`Banda dcha. ${wr}/2`,e:'Máximo 2 jugadores en la banda derecha'}];
-  return {ok:items.every(i=>i.ok),items};
-}
-function deploy(ti){
-  const T=S.teams[ti];
-  T.players.forEach(p=>{p.t=ti;if(p.st==='pitch')setStatus(p,'reserve');});
-  const pool=T.players.filter(p=>p.st==='reserve');
-  const spots=[[7,0,['big','line','blitz']],[5,0,['big','line','blitz']],[9,0,['line','big','blitz']],
-    [1,2,['catch','blitz','line']],[13,2,['catch','blitz','line']],[4,3,['blitz','line']],[10,3,['blitz','line']],
-    [7,3,['line','blitz','big']],[3,6,['catch','blitz','line']],[11,6,['catch','blitz','line']],[7,8,['throw','catch','line']]];
-  for(const [x,dy,prefs] of spots){
-    if(!pool.length)break;
-    let i=-1;for(const r of prefs){i=pool.findIndex(p=>posOf(p).r===r);if(i>=0)break;}
-    if(i<0)i=0;const p=pool.splice(i,1)[0];
-    p.st='pitch';p.x=x;p.y=ti===0?13+dy:12-dy;
-  }
-}
-function resetActs(){allP().forEach(p=>{p.act=false;p.mv=0;});S.used={};}
-
-// ---------- Flujo del partido ----------
-function checkTD(){
-  const p=S.carrier&&findP(S.carrier);
-  if(p&&p.st==='pitch'&&!p.prone&&!p.stun&&p.y===scoreRow(p.t)){
-    S.teams[p.t].score++;S.lastScorer=p.t;S.phase='drive_end';S.drive={reason:'td',resolved:false,log:''};
-    S.halfOver=S.halfOver||S.teams[1-p.t].turn>=8;
-    pendingToast=`¡Touchdown de ${S.teams[p.t].name}!`;
-  }
-}
-function endTurn(turnover){
-  commit(()=>{
-    S.teams[S.active].players.forEach(p=>{if(p.st==='pitch'&&p.stun&&p.stunAt<S.gturn){p.stun=false;p.prone=true;}});
-    resetActs();S.gturn++;
-    const nx=1-S.active;
-    if(S.teams[nx].turn>=8){S.halfOver=true;S.phase='drive_end';S.drive={reason:'half',resolved:false,log:''};
-      pendingToast=S.half===1?'Fin de la primera parte':'Fin del partido';return;}
-    S.active=nx;S.teams[nx].turn++;
-    pendingToast=`${turnover?'Turnover. ':''}Turno ${S.teams[nx].turn} de ${S.teams[nx].name}`;
-  });
-  sel=null;render();
-}
-function bounce(){
-  const b=S.ball;if(!b)return;
-  const d=rnd(8),[dx,dy]=DIRS[d],nx=b.x+dx,ny=b.y+dy;
-  if(S.phase==='kick_land'&&(!inPitch(nx,ny)||!inHalf(recv(),ny))){S.ball=null;S.kick.touchback=true;pendingToast=`Rebota ${ARROW[d]} fuera: touchback`;return;}
-  if(!inPitch(nx,ny)){pendingToast=`Rebota ${ARROW[d]} fuera del campo: saque del público (colócalo a mano)`;return;}
-  S.ball={x:nx,y:ny};S.kick.rest=!at(nx,ny);pendingToast=`Rebota ${ARROW[d]}`;
-}
-function resolveDrive(){
-  commit(()=>{
-    const log=[];
-    const sw=allP().filter(p=>p.st==='pitch'&&/Arma Secreta/.test(posOf(p).sk||''));
-    sw.forEach(p=>setStatus(p,'off'));
-    log.push(sw.length?`Expulsadas armas secretas: ${sw.map(p=>'#'+p.num+' '+posOf(p).n).join(', ')}.`:'Sin armas secretas.');
-    const ko=[];allP().forEach(p=>{if(p.st==='ko'){const v=rnd(6);if(v>=4)p.st='reserve';ko.push(`${S.teams[p.t].name} #${p.num}: ${v} ${v>=4?'vuelve':'sigue KO'}`);}});
-    log.push(ko.length?`Recuperación KO: ${ko.join('; ')}.`:'Sin jugadores KO.');
-    if(S.weather&&S.weather.t==='Calor sofocante')log.push('Calor sofocante: tirad D3 y retirad esos jugadores al azar a reservas.');
-    S.drive.resolved=true;S.drive.log=log.join(' ');
-  });
-}
-function nextDrive(){
-  commit(()=>{
-    allP().forEach(p=>{if(p.st==='pitch')setStatus(p,'reserve');});
-    S.ball=null;S.carrier=null;S.kick={};resetActs();
-    if(S.halfOver){
-      if(S.half===1){S.half=2;S.halfOver=false;S.teams.forEach(T=>{T.turn=0;T.rr=T.rrMax;});S.kicker=1-S.firstKicker;S.phase='setup_kick';pendingToast='Segunda parte';}
-      else S.phase='end';
-    }else{S.kicker=S.lastScorer!=null?S.lastScorer:S.kicker;S.phase='setup_kick';}
-    S.drive=null;
-  });
-  sel=null;render();
-}
-function doPrimary(){
-  const ph=S.phase;
-  if(ph==='pre_teams'){for(const T of S.teams){const c=teamCheck(T);if(!c.ok)return toast(`${T.name}: ${c.items.find(i=>!i.ok).t}`);}
-    commit(()=>{S.phase='pre_game';S.teams.forEach(T=>{T.rr=T.rrMax;T.d3=rnd(3);T.ff=T.d3+T.df;});S.weather=rollWeather();S.coin=rnd(2)-1;});
-    return show('pre');}
-  if(ph==='pre_game')return show('pre');
-  if(ph==='setup_kick'||ph==='setup_recv'){
-    const c=setupCheck(setupTeam());if(!c.ok)return toast(c.items.find(i=>!i.ok).e);
-    sel=null;return commit(()=>{S.phase=ph==='setup_kick'?'setup_recv':'kick_place';});
-  }
-  if(ph==='kick_place'){if(!S.ball)return toast('Toca la casilla a la que patea');
-    return commit(()=>{const b=S.ball,d8=rnd(8),d6=rnd(6),[dx,dy]=DIRS[d8],nx=b.x+dx*d6,ny=b.y+dy*d6;
-      S.kick={dev:{d8,d6}};S.kick.touchback=!inPitch(nx,ny)||!inHalf(recv(),ny);S.ball=inPitch(nx,ny)?{x:nx,y:ny}:null;S.phase='kick_event';});}
-  if(ph==='kick_event'){
-    if(!S.kick.ev)return commit(()=>{const a=rnd(6),b=rnd(6),tot=a+b,row=TABLES.kickoff.rows.find(r=>tot>=r[0]&&tot<=r[1]);
-      let extra='';
-      if(tot===3){const kt=S.teams[S.kicker].turn,d=kt>=6?-1:1;S.teams.forEach(T=>T.turn=Math.max(0,Math.min(8,T.turn+d)));extra=d<0?' Marcadores retrasados un turno.':' Marcadores adelantados un turno.';}
-      if(tot===8){S.weather=rollWeather();extra=` Nuevo clima (${S.weather.a}+${S.weather.b}): ${S.weather.t}.`;
-        if(S.weather.t==='Condiciones perfectas'&&S.ball){for(let i=0;i<3;i++){const b=S.ball;if(!b)break;const[dx,dy]=DIRS[rnd(8)];const nx=b.x+dx,ny=b.y+dy;
-          if(!inPitch(nx,ny)){S.ball=null;S.kick.touchback=true;break;}S.ball={x:nx,y:ny};if(!inHalf(recv(),ny))S.kick.touchback=true;}
-          extra+=' El balón se desvía 3 casillas en el aire.';}}
-      if(tot===6)extra=` Animadoras: ${S.teams[0].name} ${S.teams[0].cheer}, ${S.teams[1].name} ${S.teams[1].cheer}.`;
-      if(tot===7)extra=` Ayudantes: ${S.teams[0].name} ${S.teams[0].asst}, ${S.teams[1].name} ${S.teams[1].asst}.`;
-      if(tot===12)extra=` Fan Factor: ${S.teams[0].name} ${S.teams[0].ff}, ${S.teams[1].name} ${S.teams[1].ff}.`;
-      S.kick.ev={a,b,tot,t:row[2],d:row[3]+extra};});
-    return commit(()=>{S.phase='kick_land';S.kick.rest=false;if(S.ball&&!inHalf(recv(),S.ball.y)){S.kick.touchback=true;S.ball=null;}});
-  }
-  if(ph==='kick_land'){
-    const ok=S.carrier||(S.ball&&S.kick.rest&&!at(S.ball.x,S.ball.y));
-    if(!ok)return toast(S.kick.touchback?'Da el balón a un jugador del receptor':'Resuelve primero dónde acaba el balón');
-    sel=null;return commit(()=>{S.phase='turn';S.active=recv();S.teams[S.active].turn++;resetActs();pendingToast=`Turno ${S.teams[S.active].turn} de ${S.teams[S.active].name}`;});
-  }
-  if(ph==='turn')return endTurn(false);
-  if(ph==='drive_end')return S.drive.resolved?nextDrive():resolveDrive();
-  if(ph==='end'){hist=[];S=fresh();sel=null;save();render();toast('Nueva partida');}
-}
-
-// ---------- Guía por fases ----------
-function guide(){
-  const [A,B]=S.teams,ph=S.phase,n=t=>esc(S.teams[t].name);
-  const g={title:'',text:'',chips:'',label:'Continuar',small:'Previa',dis:false};
-  if(ph==='pre_teams'){g.title=`Selección de equipos · ${S.budget}k`;
-    g.text=[0,1].map(t=>{const c=teamCheck(S.teams[t]);return `<span class="chk ${c.ok?'ok':'no'}">${c.ok?'✓':'✗'} ${n(t)}: ${c.n} jug. · ${c.c}k</span>`;}).join('');
-    g.chips=`<button class="hot" data-act="sheet" data-s="t0">Fichar ${n(0)}</button><button class="hot" data-act="sheet" data-s="t1">Fichar ${n(1)}</button>`;}
-  else if(ph==='pre_game'){const w=S.weather;g.title='Previa del partido';g.dis=true;g.label='Elige';
-    g.text=`Afición ${n(0)} ${dv(A.d3)}+${A.df}=${A.ff} · ${n(1)} ${dv(B.d3)}+${B.df}=${B.ff}<br>Clima ${dv(w.a)}${dv(w.b)} ${esc(w.t)} · Moneda: gana ${n(S.coin)}`;
-    g.chips=`<button class="hot" data-act="choose" data-k="1">${n(S.coin)} patea</button><button class="hot" data-act="choose" data-k="0">${n(S.coin)} recibe</button><button data-act="sheet" data-s="pre">Ver tiradas</button>`;}
-  else if(ph==='setup_kick'||ph==='setup_recv'){const t=setupTeam(),c=setupCheck(t);g.small='Despliegue';
-    g.title=ph==='setup_kick'?`Despliega ${n(t)} (patea, primero)`:`Despliega ${n(t)} (recibe)`;
-    g.text=c.items.map(i=>`<span class="chk ${i.ok?'ok':'no'}">${i.ok?'✓':'✗'} ${i.t}</span>`).join('');g.label='Listo';
-    g.chips=`<button data-act="sheet" data-s="t${t}">Banquillo</button><button data-act="deploy" data-t="${t}">Despliegue rápido</button><button data-act="allbench" data-t="${t}">Retirar todos</button>`;}
-  else if(ph==='kick_place'){g.small='Patada';g.title=`${n(S.kicker)} patea`;g.label='Desviar';
-    g.text=S.ball?'Pulsa Desviar: D8 de dirección y D6 casillas.':`Toca la casilla del campo de ${n(recv())} a la que apuntas.`;}
-  else if(ph==='kick_event'){const k=S.kick;g.small='Patada';
-    g.title=`Desvío ${ARROW[k.dev.d8]} ${k.dev.d6} casillas${k.touchback?' · ¡Touchback!':''}`;
-    const dtxt=`Dirección ${dv(k.dev.d8,'d8')} ${ARROW[k.dev.d8]} · Distancia ${dv(k.dev.d6)}. `;
-    if(!k.ev){g.text=dtxt+'El balón está en el aire: tira el evento de patada (2D6).';g.label='Tirar evento';}
-    else{g.title=`Evento ${k.ev.tot}: ${esc(k.ev.t)}`;g.text=`${dv(k.ev.a)}${dv(k.ev.b)} `+esc(k.ev.d)+' Aplica los efectos y continúa.';g.label='Cae el balón';}}
-  else if(ph==='kick_land'){g.small='Patada';g.label='Empezar turno';const k=S.kick,r=recv();
-    if(S.carrier){const p=findP(S.carrier);g.title='Balón controlado';g.text=`Lo tiene #${p.num} ${esc(posOf(p).n)}. Empieza el turno de ${n(r)}.`;}
-    else if(k.touchback){g.title='Touchback';g.text=`${n(r)} elige uno de sus jugadores en el campo: tócalo y pulsa «Dar balón».`;g.dis=true;}
-    else if(S.ball){const p=at(S.ball.x,S.ball.y);
-      if(p){g.title=`Cae sobre #${p.num} ${esc(posOf(p).n)}`;g.text=`Tira para atrapar (AG ${posOf(p).ag}). Si falla, rebota.`;g.dis=true;
-        g.chips=`<button class="hot" data-act="catch" data-id="${p.id}">Atrapa</button><button data-act="bounce">Falla: rebota</button>`;}
-      else if(!k.rest){g.title='Cae en una casilla vacía';g.text='El balón rebota una casilla (D8).';g.dis=true;g.chips='<button class="hot" data-act="bounce">Rebotar</button>';}
-      else{g.title='Balón en el suelo';g.text=`Empieza el turno de ${n(r)}.`;}}}
-  else if(ph==='turn'){const T=S.teams[S.active];g.small=`${S.half}ª parte`;g.label='Fin de turno';
-    g.title=`Turno ${T.turn}/8 · ${n(S.active)} (${role(S.active).toLowerCase()})`;
-    g.text='Activa jugadores uno a uno. Una vez por turno: Blitz, Pase, Entrega, Falta y Lanzar compañero.';
-    g.chips=SPECIAL.map(([k,l])=>`<button class="${S.used[k]?'hot':''}" data-act="used" data-k="${k}">${S.used[k]?'✓ ':''}${l}</button>`).join('')+
-      `<button data-act="userr" ${T.rr?'':'disabled'}>Usar re-roll (${T.rr})</button><button class="warn" data-act="turnover">Turnover</button><button data-act="ballmode">Balón</button>`;}
-  else if(ph==='drive_end'){const d=S.drive;g.small='Fin de drive';
-    g.title=d.reason==='td'?`¡Touchdown de ${n(S.lastScorer)}! ${A.score}–${B.score}`:d.reason==='half'?(S.half===1?'Fin de la primera parte':'Fin del partido'):'Fin del drive';
-    if(!d.resolved){g.text='Se expulsan las armas secretas y se tira la recuperación de KO (4+).';g.label='Resolver';}
-    else{g.text=esc(d.log);g.label=S.halfOver?(S.half===1?'Ir al descanso':'Ver resultado'):'Siguiente drive';}}
-  else if(ph==='end'){g.small='Final';g.label='Nueva partida';
-    g.title=`Final: ${n(0)} ${A.score} – ${B.score} ${n(1)}`;g.text=A.score===B.score?'Empate.':`Gana ${n(A.score>B.score?0:1)}.`;}
-  return g;
-}
-
-// ---------- Render ----------
-function render(){renderTop();renderPitch();renderPanel();renderNav();if(openSheet)renderSheet();}
-function renderTop(){
-  const t=S.teams,f=focusTeam(),g=guide();
-  const blk=i=>`<div class="team ${i?'b':''} ${f===i?'on':''}" style="--c:${col(i).c}">
-    <span class="sc num">${t[i].score}</span>
-    <span class="meta"><span class="nm">${esc(t[i].name)}</span><span class="sub">T${t[i].turn}/8 · RR ${t[i].rr}</span>${S.kicker!=null?`<span class="role ${i===S.kicker?'k':''}">${role(i)}</span>`:''}</span></div>`;
-  document.getElementById('top').innerHTML=blk(0)+`<button class="endturn" data-act="primary" ${g.dis?'disabled':''}><small>${g.small}</small><b>${g.label}</b></button>`+blk(1);
-}
-function renderPitch(){
-  const pitch=document.getElementById('pitch'),main=document.getElementById('main');
-  const cell=Math.max(18,Math.floor(Math.min((main.clientWidth-10)/W,(main.clientHeight-10)/H)));
-  pitch.style.setProperty('--cell',cell+'px');
-  const map={};allP().forEach(p=>{if(p.st==='pitch')map[p.x+','+p.y]=p;});
-  const bp=ballPos();
-  const st=setupTeam(),dimT=st!=null?st:S.phase==='kick_place'?recv():null;
-  const tz=new Set();
-  if(sel&&sel.type==='p'){const sp=findP(sel.id);if(sp)allP().forEach(o=>{
-    if(o.t!==sp.t&&o.st==='pitch'&&!o.prone&&!o.stun)
-      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)if(dx||dy)tz.add((o.x+dx)+','+(o.y+dy));});}
-  let h='';
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const k=x+','+y,p=map[k];
-    const cls=['c',(y===0||y===H-1)?'ez':(Math.floor(y/2)%2?'s2':''),(!p&&tz.has(k))?'tz':'',(dimT!=null&&!inHalf(dimT,y))?'dim':''].join(' ');
-    let inner='';
-    if(p)inner=tokenHTML(p,sel&&sel.type==='p'&&sel.id===p.id?'sel':'');
-    if(bp&&!S.carrier&&bp.x===x&&bp.y===y)inner+=`<div class="ball ${p?'under':''} ${sel&&sel.type==='b'?'sel':''} ${S.phase==='kick_event'?'air':''}"></div>`;
-    h+=`<div class="${cls}" data-x="${x}" data-y="${y}">${inner}</div>`;
-  }
-  h+=`<svg class="lines" viewBox="0 0 15 26" preserveAspectRatio="none" aria-hidden="true">
-    <line x1="0" y1="1" x2="15" y2="1" stroke="#f4f5ea" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    <line x1="0" y1="25" x2="15" y2="25" stroke="#f4f5ea" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    <line x1="0" y1="13" x2="15" y2="13" stroke="#f4f5ea" stroke-width="3" vector-effect="non-scaling-stroke"/>
-    <line x1="4" y1="1" x2="4" y2="25" stroke="#f4f5ea" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" opacity=".7"/>
-    <line x1="11" y1="1" x2="11" y2="25" stroke="#f4f5ea" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" opacity=".7"/>
-  </svg>`;
-  pitch.innerHTML=h;
-}
-function renderPanel(){
-  const el=document.getElementById('panel');
-  if(sel&&sel.type==='b'){
-    el.innerHTML=`<div class="info"><div class="mini"><div class="ball" style="width:22px;height:22px"></div></div><div class="txt"><b>Balón</b><br><span class="stats">Toca una casilla o un jugador para colocarlo</span></div></div>
-    <div class="chips">${S.ball&&!S.carrier?'<button data-act="bounce">Rebote D8</button>':''}<button data-act="ballremove">Quitar del campo</button><button data-act="desel">Cerrar</button></div>`;return;
-  }
-  if(sel&&sel.type==='p'){
-    const p=findP(sel.id);if(!p){sel=null;return renderPanel();}
-    const q=posOf(p),onP=p.st==='pitch';
-    let mv='';
-    if(onP&&S.phase==='turn'&&p.t===S.active){const c=p.mv>q.ma+2?'over':p.mv>q.ma?'gfi':'';mv=`<span class="mv ${c}">Mov ${p.mv}/${q.ma}${p.mv>q.ma&&p.mv<=q.ma+2?' · Rush '+(p.mv-q.ma):''}</span>`;}
-    const where={reserve:'Reservas',ko:'KO',cas:'Lesionado',off:'Expulsado'}[p.st];
-    el.innerHTML=`<div class="info"><div class="mini">${tokenHTML(p)}</div>
-      <div class="txt"><b>#${p.num} ${esc(q.n)}</b> <span class="stats">· ${esc(S.teams[p.t].name)}${where?' · '+where:''}</span><br><span class="stats">MA${q.ma} ST${q.st} AG${q.ag} PA${q.pa} AV${q.av}</span><span class="skills">${esc(q.sk||'Sin habilidades')}</span></div>${mv}</div>
-      <div class="chips">${onP?`
-        <button data-act="prone">${p.prone||p.stun?'Levantar':'Derribar'}</button>
-        <button data-act="stun">${p.stun?'Quitar aturdido':'Aturdir'}</button>
-        <button data-act="armour">Armadura</button>
-        ${S.carrier===p.id?'<button data-act="dropball">Soltar balón</button>':'<button class="'+(S.phase==='kick_land'&&S.kick.touchback?'hot':'')+'" data-act="giveball">Dar balón</button>'}
-        ${S.phase==='turn'?`<button data-act="toggleact">${p.act?'Reactivar':'Ya activado'}</button>`:''}
-        <button data-act="tost" data-st="ko">KO</button>
-        <button class="warn" data-act="tost" data-st="cas">Lesionado</button>
-        <button data-act="tost" data-st="off">Expulsado</button>
-        <button data-act="tost" data-st="reserve">Al banquillo</button>`
-      :`<button class="hot" disabled>Toca una casilla para colocarlo</button>
-        ${p.st!=='reserve'?'<button data-act="tost" data-st="reserve">A reservas</button>':''}
-        ${p.st!=='ko'?'<button data-act="tost" data-st="ko">KO</button>':''}
-        ${p.st!=='cas'?'<button class="warn" data-act="tost" data-st="cas">Lesionado</button>':''}
-        ${(p.st==='ko'||p.st==='cas')&&S.teams[p.t].apo&&!S.teams[p.t].apoUsed?'<button class="hot" data-act="apo">Usar boticario</button>':''}`}
-        <button data-act="desel">Cerrar</button></div>`;
-    return;
-  }
-  const g=guide();
-  el.innerHTML=`<div class="guide"><div class="g-title">${g.title}</div><div class="g-text">${g.text}</div></div><div class="chips">${g.chips}</div>`;
-}
-function renderNav(){
-  document.getElementById('nav').innerHTML=
-    `<button data-act="sheet" data-s="t0" style="--c:${col(0).c}"><i></i>${esc(S.teams[0].name)}</button>
-     <button data-act="sheet" data-s="t1" style="--c:${col(1).c}"><i></i>${esc(S.teams[1].name)}</button>
-     <button data-act="sheet" data-s="dice"><i style="border-radius:3px"></i>Dados</button>
-     <button data-act="sheet" data-s="game"><i style="border-radius:3px;background:var(--brass)"></i>Partido</button>
-     <button data-act="undo" ${hist.length?'':'disabled'}><i style="background:transparent"></i>Deshacer</button>`;
-}
-
-// ---------- Hojas ----------
-function show(s){openSheet=s;document.getElementById('wrap').hidden=false;renderSheet();}
-function hide(){openSheet=null;document.getElementById('wrap').hidden=true;}
-function renderSheet(){
-  const el=document.getElementById('sheet');
-  if(openSheet==='t0'||openSheet==='t1')el.innerHTML=teamSheet(+openSheet[1]);
-  else if(openSheet==='dice')el.innerHTML=diceSheet();
-  else if(openSheet==='pre')el.innerHTML=preSheet();
-  else el.innerHTML=gameSheet();
-}
-function head(t){return `<div class="shead"><h2>${t}</h2><button class="x" data-act="close" aria-label="Cerrar">✕</button></div>`;}
-function stepper(act,t,val){return `<div class="stepper"><button data-act="${act}" data-t="${t}" data-d="-1" aria-label="Restar">−</button><b>${val}</b><button data-act="${act}" data-t="${t}" data-d="1" aria-label="Sumar">+</button></div>`;}
-function teamSheet(ti){
-  const T=S.teams[ti],R=RACES[T.race],pre=S.phase==='pre_teams';
-  if(pre){
-    const c=teamCheck(T),counts={};T.players.forEach(p=>{p.t=ti;counts[p.k]=(counts[p.k]||0)+1;});
-    const row=(lbl,sub,act,k,val,max)=>`<div class="buy"><div class="grow"><b>${lbl}</b><br><span class="st">${sub}</span></div>
-      <div class="stepper"><button data-act="${act}" data-t="${ti}" data-k="${k}" data-d="-1" aria-label="Quitar">−</button><b>${val}</b><button data-act="${act}" data-t="${ti}" data-k="${k}" data-d="1" ${val>=max?'disabled':''} aria-label="Añadir">+</button></div></div>`;
-    return head(`Fichajes <small style="font-size:.9rem;color:var(--muted)">${ti?'juega arriba':'juega abajo'}</small>`)+
-      `<div class="budget ${c.ok?'':'bad'}"><div><b class="num">${c.c}k</b> / ${S.budget}k · quedan ${S.budget-c.c}k</div><div>${c.n} jugadores ${c.n<11?'(mín. 11)':''}</div>
-        <div class="bar"><i style="width:${Math.min(100,c.c/S.budget*100)}%"></i></div></div>
-      <div class="row"><input class="field" value="${esc(T.name)}" data-in="name" data-t="${ti}" maxlength="24" aria-label="Nombre del equipo"></div>
-      <div class="row" style="margin-top:8px"><select class="field" data-in="race" data-t="${ti}" aria-label="Raza">${[1,2,3,4].map(tr=>{const L=Object.entries(RACES).filter(([k,r])=>r.tier===tr);return L.length?`<optgroup label="Tier ${tr}">${L.map(([k,r])=>`<option value="${k}" ${k===T.race?'selected':''}>${r.n}</option>`).join('')}</optgroup>`:'';}).join('')}</select></div>
-      <p class="empty" style="margin:6px 0 0">Tier ${R.tier} · Re-roll ${R.rr}k · ${R.apo?'Con boticario':'Sin boticario'} · Máx. ${R.bg} grande(s)${R.rules.length?'<br>'+R.rules.map(esc).join(' · '):''}</p>
-      <div class="row" style="margin-top:8px">${COLORS.map((cl,i)=>`<button class="sw ${T.color===i?'on':''}" style="--c:${cl.c}" data-act="color" data-t="${ti}" data-c="${i}" aria-label="${cl.n}"></button>`).join('')}</div>
-      <div class="row" style="margin-top:10px"><button data-act="recommended" data-t="${ti}">Plantilla recomendada</button><button data-act="emptyteam" data-t="${ti}">Vaciar</button></div>
-      <h3>Jugadores</h3>`+R.pos.map(q=>`<div class="buy"><span class="mini">${tokenHTML({t:ti,k:q.k,prone:false,stun:false,act:false})}</span>
-        <div class="grow"><b>${esc(q.n)}</b> <span class="st">${q.cost}k · 0–${q.max}</span><br><span class="st" style="font-style:italic">${esc(q.en)}</span><br><span class="st">MA${q.ma} ST${q.st} AG${q.ag} PA${q.pa} AV${q.av}</span>${q.sk?`<br><span class="st">${esc(q.sk)}</span>`:''}</div>
-        <div class="stepper"><button data-act="buy" data-t="${ti}" data-k="${q.k}" data-d="-1" aria-label="Quitar">−</button><b>${counts[q.k]||0}</b><button data-act="buy" data-t="${ti}" data-k="${q.k}" data-d="1" ${(counts[q.k]||0)>=q.max?'disabled':''} aria-label="Fichar">+</button></div></div>`).join('')+
-      `<h3>Banda y extras</h3>`+
-      row('Re-rolls',`${R.rr}k cada uno · máx. 8`,'staff','rrMax',T.rrMax,8)+
-      (R.apo?row('Boticario','50k · una vez por partido','staff','apo',T.apo,1):'<p class="empty">Este equipo no puede tener boticario.</p>')+
-      row('Ayudantes de entrenador','10k · Entrenamiento brillante','staff','asst',T.asst,6)+
-      row('Animadoras','10k · Afición animando','staff','cheer',T.cheer,6)+
-      `<div class="buy"><div class="grow"><b>Presupuesto del partido</b><br><span class="st">Común a los dos equipos</span></div>${stepper('budget',ti,S.budget+'k').replace(/data-d="-1"/,'data-d="-50"').replace(/data-d="1"/,'data-d="50"')}</div>
-      <div class="buy"><div class="grow"><b>Seguidores</b><br><span class="st">Suman al Fan Factor</span></div>${stepper('df',ti,T.df)}</div>
-      <p class="empty" style="margin-top:12px">Plantillas Season 3 (2025): datos de FUMBBL contrastados con bloodbowlbase.ru y nufflezone.com. Las habilidades con el nombre inglés entre paréntesis no tienen traducción confirmada.</p>`;
-  }
-  const group=(st,title)=>{
-    const ps=T.players.filter(p=>p.st===st).sort((a,b)=>a.num-b.num);
-    return `<h3>${title} (${ps.length})</h3>`+(ps.length?ps.map(p=>{p.t=ti;const q=posOf(p);
-      return `<button class="pl" data-act="pick" data-id="${p.id}"><span class="mini">${tokenHTML(p)}</span>
-        <span class="grow"><b>#${p.num} ${esc(q.n)}</b><br><span class="st">MA${q.ma} ST${q.st} AG${q.ag} PA${q.pa} AV${q.av}</span>${q.sk?`<br><span class="st">${esc(q.sk)}</span>`:''}</span></button>`;}).join('')
-      :'<div class="empty">Ninguno</div>');
-  };
-  return head(`${esc(T.name)} <small style="font-size:.9rem;color:var(--muted)">${esc(R.n)}</small>`)+
-    `<p class="empty">Re-rolls ${T.rr}/${T.rrMax} · Boticario ${T.apo?(T.apoUsed?'usado':'disponible'):'no'} · Ayudantes ${T.asst} · Animadoras ${T.cheer} · Fan Factor ${T.ff??'—'}</p>`+
-    (setupTeam()===ti?`<div class="row" style="margin-top:10px"><button class="primary" data-act="deploy" data-t="${ti}">Despliegue rápido</button><button data-act="allbench" data-t="${ti}">Retirar todos</button></div>`:'')+
-    group('pitch','En el campo')+group('reserve','Reservas')+group('ko','KO')+group('cas','Lesionados')+group('off','Expulsados');
-}
-function preSheet(){
-  if(!S.weather)return head('Previa')+'<p class="empty">Las tiradas aparecen al terminar la selección de equipos.</p>';
-  const [A,B]=S.teams,w=S.weather,n=t=>esc(S.teams[t].name);
-  return head('Previa del partido')+
-   `<h3>La afición · D3 + Seguidores</h3>
-    <div class="prerow"><span class="pname">${n(0)}</span><div class="die">${A.d3}</div><span class="eq">+ ${A.df} = <b>${A.ff}</b></span></div>
-    <div class="prerow"><span class="pname">${n(1)}</span><div class="die">${B.d3}</div><span class="eq">+ ${B.df} = <b>${B.ff}</b></span></div>
-    <h3>El clima · 2D6</h3>
-    <div class="prerow"><div class="die">${w.a}</div><div class="die">${w.b}</div><span class="eq">= <b>${w.tot}</b></span></div>
-    <p class="tres" style="text-align:left;max-width:none"><b>${esc(w.t)}.</b> ${esc(w.d)}</p>
-    <h3>Moneda</h3>
-    <div class="prerow"><div class="die coin">${S.coin?'✕':'●'}</div><span class="eq">Gana <b>${n(S.coin)}</b>${S.kicker==null?' y elige':''}</span></div>
-    ${S.kicker==null?`<div class="row" style="margin-top:12px"><button class="primary" data-act="choose" data-k="1">${n(S.coin)} patea</button><button class="primary" data-act="choose" data-k="0">${n(S.coin)} recibe</button></div>`:`<p class="empty">Patea ${n(S.firstKicker)} en la primera parte.</p>`}
-    <p class="empty" style="margin-top:12px">Fichajes temporales e incentivos, si los usáis, se resuelven ahora.</p>`;
-}
-function gameSheet(){
-  const [a,b]=S.teams;
-  const lg=(cls,lbl,big)=>`<div class="mini"><div class="tk ${big?'big':''} ${cls}" style="--c:${col(0).c};--t:${col(0).t}"><span>B</span></div></div><span>${lbl}</span>`;
-  return head('Partido')+
-   `<p class="empty">${S.half}ª parte${S.weather?` · Clima: ${esc(S.weather.t)}`:''}${a.ff!=null?` · Fan Factor ${a.ff} / ${b.ff}`:''}</p>
-    <h3>Ajustes manuales</h3>
-    <div class="grid2"><span></span><span class="hd">${esc(a.name)}</span><span class="hd">${esc(b.name)}</span>
-      <span class="hd">Touchdowns</span>${stepper('score',0,a.score)}${stepper('score',1,b.score)}
-      <span class="hd">Re-rolls</span>${stepper('rr',0,a.rr)}${stepper('rr',1,b.rr)}
-      <span class="hd">Turno</span>${stepper('turn',0,a.turn)}${stepper('turn',1,b.turn)}</div>
-    ${S.phase==='turn'?'<div class="row" style="margin-top:12px"><button data-act="forcedrive">Terminar el drive ahora</button></div>':''}
-    <h3>Turnover si…</h3><p class="empty">Un jugador activo cae o es derribado; el portador acaba en el suelo o fuera; falla recoger el balón; pifia un pase; nadie de su equipo atrapa un pase o entrega; el rival se queda el balón; expulsan a quien hace falta; se anota un touchdown.</p>
-    <h3>Fichas</h3>
-    <div class="legend">${lg('','De pie')}${lg('prone','Derribado (borde y letra girada)')}${lg('stun','Aturdido (rayado, letra boca abajo)')}${lg('act','Ya activado este turno')}
-      <div class="mini"><div class="tk big" style="--c:${col(0).c};--t:${col(0).t}"><span>O</span></div></div><span>Ficha cuadrada: jugador grande</span>
-      <div class="mini"><div class="tk" style="--c:${col(0).c};--t:${col(0).t}"><span>B</span><i class="bc"></i></div></div><span>Lleva el balón</span></div>
-    <p class="empty">La letra indica el posicional (L Línea, B Blitzer, Lz Lanzador, R Receptor, C Corredor, D Danzante, M Matatrolls, H Halfling, G Goblin, OG Orco Grandote…). Las casillas rojizas son zonas de placaje del rival del jugador seleccionado. Los aturdidos pasan a derribados al acabar su siguiente turno.</p>
-    <h3>Nueva partida</h3><button class="danger" data-act="reset">Empezar de cero</button>`;
-}
-const BLOCK=[{t:'Atacante derribado',c:'bad'},{t:'Ambos derribados',c:'mid'},{t:'Empujón',c:'mid'},{t:'Empujón',c:'mid'},{t:'Tropieza (con Esquivar: empujón; si no, ¡POW!)',c:'good'},{t:'¡POW!',c:'good'}];
-function rollTable(k){const T=TABLES[k],r=T.dice.map(f=>rnd(f)),tot=r.reduce((a,b)=>a+b,0);
-  const row=T.rows.find(x=>tot>=x[0]&&tot<=x[1]);diceLog.unshift({r,lbl:T.n,table:{t:row[2],d:row[3],tot}});diceLog=diceLog.slice(0,12);}
-function roll(n,f,block){const r=[];for(let i=0;i<n;i++)r.push(rnd(block?6:f));
-  diceLog.unshift({r,block,lbl:block?`Placaje ${n}D`:`${n>1?n:''}D${f}`});diceLog=diceLog.slice(0,12);}
-function diceSheet(){
-  const last=diceLog[0];
-  let res='<div class="empty">Elige un dado</div>';
-  if(last){
-    res=last.block?last.r.map(v=>`<div class="die blk ${BLOCK[v-1].c}">${BLOCK[v-1].t}</div>`).join('')
-      :last.r.map(v=>`<div class="die">${v}</div>`).join('');
-    if(last.table)res+=`<div class="tres"><b>${last.lbl} ${last.table.tot}: ${esc(last.table.t)}</b><br>${esc(last.table.d)}</div>`;
-  }
-  return head('Dados')+
-   `<div class="dice">
-     <button data-act="roll" data-n="1" data-f="6">D6</button><button data-act="roll" data-n="2" data-f="6">2D6</button>
-     <button data-act="roll" data-n="1" data-f="8">D8</button><button data-act="roll" data-n="1" data-f="16">D16</button>
-     <button data-act="block" data-n="1">Placaje 1D</button><button data-act="block" data-n="2">Placaje 2D</button>
-     <button data-act="block" data-n="3">Placaje 3D</button><button data-act="roll" data-n="3" data-f="6">3D6</button></div>
-    <h3>Tablas</h3><div class="dice tables">${Object.entries(TABLES).map(([k,t])=>`<button data-act="table" data-k="${k}">${t.n}</button>`).join('')}</div>
-    <div class="result">${res}</div>
-    ${last&&!last.block&&!last.table&&last.r.length>1?`<div class="sum">Suma ${last.r.reduce((a,b)=>a+b,0)}</div>`:''}
-    <h3>Últimas tiradas</h3><div class="hist">${diceLog.slice(1,9).map(d=>`<span>${d.lbl}: ${d.block?d.r.map(v=>BLOCK[v-1].t).join(', '):d.table?d.table.tot+' '+esc(d.table.t):d.r.join(' + ')}</span>`).join('')||'<span>Nada todavía</span>'}</div>`;
-}
-
-// ---------- Toques en el campo ----------
-function tapCell(x,y){
-  const p=at(x,y);
-  if(S.phase==='kick_place'){
-    if(!inHalf(recv(),y))return toast(`Tiene que caer en el campo de ${S.teams[recv()].name}`);
-    return commit(()=>{S.ball={x,y};S.carrier=null;});
-  }
-  if(sel&&sel.type==='b'){
-    commit(()=>{if(p){S.carrier=p.id;S.ball=null;}else{S.carrier=null;S.ball={x,y};}});sel=null;render();return;
-  }
-  if(p){sel=(sel&&sel.type==='p'&&sel.id===p.id)?null:{type:'p',id:p.id};render();return;}
-  if(sel&&sel.type==='p'){
-    const m=findP(sel.id),st=setupTeam();
-    if(st!=null){
-      if(m.t!==st)return toast(`Ahora despliega ${S.teams[st].name}`);
-      if(!inHalf(st,y))return toast('Solo en tu mitad del campo');
-    }
-    if(S.phase==='turn'&&m.st==='pitch'&&m.t===S.active&&m.stun)return toast('Un aturdido no puede actuar este turno');
-    if(m.st!=='pitch'&&m.st!=='reserve'&&st==null)return toast('Ese jugador no está disponible');
-    commit(()=>{
-      if(m.st!=='pitch'){m.st='pitch';m.prone=false;m.stun=false;}
-      else if(S.phase==='turn'&&m.t===S.active){
-        const d=Math.max(Math.abs(m.x-x),Math.abs(m.y-y));
-        if(m.prone){m.prone=false;m.mv+=3;}
-        m.mv+=d;m.act=true;
-      }
-      m.x=x;m.y=y;
-    });
-    return;
-  }
-  const bp=ballPos();
-  if(bp&&!S.carrier&&bp.x===x&&bp.y===y){sel={type:'b'};render();}
-}
-
-// ---------- Acciones ----------
-function act(btn){
-  const a=btn.dataset.act,ti=+btn.dataset.t;
-  const p=sel&&sel.type==='p'?findP(sel.id):null;
-  switch(a){
-    case 'primary':doPrimary();break;
-    case 'choose':{hide();const kick=btn.dataset.k==='1';commit(()=>{S.kicker=kick?S.coin:1-S.coin;S.firstKicker=S.kicker;S.phase='setup_kick';
-      pendingToast=`${S.teams[S.kicker].name} patea: despliega primero`;});break;}
-    case 'desel':sel=null;render();break;
-    case 'undo':undo();break;
-    case 'sheet':show(btn.dataset.s);break;
-    case 'close':hide();break;
-    case 'ballmode':sel={type:'b'};render();break;
-    case 'ballremove':commit(()=>{S.ball=null;S.carrier=null;});sel=null;render();break;
-    case 'bounce':commit(bounce);break;
-    case 'catch':commit(()=>{S.carrier=btn.dataset.id;S.ball=null;});break;
-    case 'used':commit(()=>{S.used[btn.dataset.k]=!S.used[btn.dataset.k];});break;
-    case 'userr':commit(()=>{S.teams[S.active].rr=Math.max(0,S.teams[S.active].rr-1);});toast('Re-roll de equipo usado');break;
-    case 'turnover':endTurn(true);break;
-    case 'forcedrive':commit(()=>{S.phase='drive_end';S.drive={reason:'manual',resolved:false,log:''};});hide();render();break;
-    case 'prone':commit(()=>{if(p.prone||p.stun){p.prone=false;p.stun=false;}else{p.prone=true;dropBall(p);}});break;
-    case 'stun':commit(()=>{if(p.stun){p.stun=false;p.prone=true;}else{p.stun=true;p.prone=false;p.stunAt=S.gturn;dropBall(p);}});break;
-    case 'armour':{const q=posOf(p),av=parseInt(q.av),a1=rnd(6),a2=rnd(6);
-      if(a1+a2<av){commit(()=>{p.prone=true;p.stun=false;dropBall(p);});toast(`Armadura ${a1}+${a2}=${a1+a2} contra ${q.av}: aguanta`);break;}
-      const i1=rnd(6),i2=rnd(6),it=i1+i2,res=it<=7?'stun':it<=9?'ko':'cas';
-      commit(()=>{dropBall(p);if(res==='stun'){p.stun=true;p.prone=false;p.stunAt=S.gturn;}else setStatus(p,res);});
-      if(res!=='stun')sel=null;render();
-      toast(`Armadura ${a1+a2} rota. Herida ${it}: ${{stun:'Aturdido',ko:'KO',cas:'Lesión'}[res]}`);break;}
-    case 'apo':commit(()=>{S.teams[p.t].apoUsed=true;p.st='reserve';});toast(`Boticario: #${p.num} vuelve a reservas`);sel=null;render();break;
-    case 'buy':{const T=S.teams[ti],k=btn.dataset.k,d=+btn.dataset.d,q=RACES[T.race].pos.find(x=>x.k===k);
-      const cnt=T.players.filter(p=>p.k===k).length;
-      const bigs=T.players.filter(p=>(RACES[T.race].pos.find(x=>x.k===p.k)||{}).r==='big').length;
-      if(d>0&&(cnt>=q.max||T.players.length>=16))return toast(cnt>=q.max?`Máximo ${q.max} ${q.n}`:'Máximo 16 jugadores');
-      if(d>0&&q.r==='big'&&bigs>=RACES[T.race].bg)return toast(`Máximo ${RACES[T.race].bg} jugador(es) grande(s)`);
-      commit(()=>{if(d>0){const n=Math.max(0,...T.players.map(p=>p.num))+1;T.players.push(mkPlayer(k,n));}
-        else{const ps=T.players.filter(p=>p.k===k).sort((a,b)=>b.num-a.num);if(ps[0])T.players=T.players.filter(p=>p!==ps[0]);}});break;}
-    case 'staff':{const T=S.teams[ti],k=btn.dataset.k,d=+btn.dataset.d,lim={rrMax:8,apo:RACES[T.race].apo?1:0,asst:6,cheer:6}[k];
-      commit(()=>{T[k]=Math.max(0,Math.min(lim,T[k]+d));if(k==='rrMax')T.rr=T.rrMax;});break;}
-    case 'budget':commit(()=>{S.budget=Math.max(500,Math.min(2000,S.budget+ +btn.dataset.d));});break;
-    case 'recommended':commit(()=>startRoster(S.teams[ti]));break;
-    case 'emptyteam':commit(()=>{const T=S.teams[ti];T.players=[];T.rrMax=T.rr=0;T.apo=0;T.asst=0;T.cheer=0;});break;
-    case 'giveball':commit(()=>{S.carrier=p.id;S.ball=null;});sel=null;render();break;
-    case 'dropball':commit(()=>dropBall(p));break;
-    case 'toggleact':commit(()=>{p.act=!p.act;if(!p.act)p.mv=0;});break;
-    case 'tost':commit(()=>setStatus(p,btn.dataset.st));sel=null;render();break;
-    case 'deploy':commit(()=>deploy(ti));sel=null;render();break;
-    case 'allbench':commit(()=>S.teams[ti].players.forEach(q=>{q.t=ti;if(q.st==='pitch')setStatus(q,'reserve');}));break;
-    case 'pick':sel={type:'p',id:btn.dataset.id};hide();render();break;
-    case 'color':commit(()=>{S.teams[ti].color=+btn.dataset.c;});break;
-    case 'score':case 'rr':commit(()=>{const T=S.teams[ti];T[a]=Math.max(0,T[a]+ +btn.dataset.d);});break;
-    case 'df':commit(()=>{const T=S.teams[ti];T.df=Math.max(0,Math.min(7,T.df+ +btn.dataset.d));if(T.ff!=null)T.ff=T.d3+T.df;});break;
-    case 'turn':commit(()=>{const T=S.teams[ti];T.turn=Math.min(8,Math.max(0,T.turn+ +btn.dataset.d));});break;
-    case 'reset':if(btn.dataset.armed){hist=[];S=fresh();sel=null;save();hide();render();toast('Nueva partida');}
-      else{btn.dataset.armed=1;btn.textContent='Toca otra vez para confirmar';setTimeout(()=>{if(btn.isConnected){delete btn.dataset.armed;btn.textContent='Empezar de cero';}},3000);}break;
-    case 'roll':roll(+btn.dataset.n,+btn.dataset.f,false);renderSheet();break;
-    case 'block':roll(+btn.dataset.n,6,true);renderSheet();break;
-    case 'table':rollTable(btn.dataset.k);renderSheet();break;
-  }
-}
-
-document.getElementById('pitch').addEventListener('click',e=>{const c=e.target.closest('.c');if(c)tapCell(+c.dataset.x,+c.dataset.y);});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&!b.disabled)act(b);});
-document.getElementById('wrap').addEventListener('click',e=>{if(e.target.id==='wrap')hide();});
-document.addEventListener('change',e=>{
-  const el=e.target,ti=+el.dataset.t;
-  if(el.dataset.in==='name'){commit(()=>{S.teams[ti].name=el.value.trim()||RACES[S.teams[ti].race].n;});}
-  if(el.dataset.in==='race'){const T=S.teams[ti];commit(()=>{
-    T.players.forEach(q=>{q.t=ti;if(S.carrier===q.id)S.carrier=null;});
-    if(T.name===RACES[T.race].n)T.name=RACES[el.value].n;
-    T.race=el.value;startRoster(T);});sel=null;render();toast('Plantilla de '+RACES[el.value].n);}
-});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(openSheet)hide();else{sel=null;render();}}});
-let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2600);}
-window.addEventListener('resize',()=>renderPitch());
-
-S=load();render();
-
-</script>
+<script type="module" src="./src/ui/app.js"></script>
 </body>
 </html>

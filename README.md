@@ -1,75 +1,78 @@
-# bbweb — Mesa de Blood Bowl
+# bbweb — Blood Bowl para el móvil
 
-Tablero digital para jugar **Blood Bowl (Season 3, reglas 2025)** en el móvil. Es una
-aplicación web de **un solo archivo** (`index.html`): no hay servidor, ni build, ni
-dependencias que instalar. Se abre en el navegador y la partida se guarda sola.
+Blood Bowl (Season 3 / BB2025) jugable en el navegador del móvil: **el motor aplica las
+reglas** —movimiento, placajes con apoyos, pases, faltas, heridas, turnos— y la partida
+a dos se juega **pasándose un enlace** que lleva el estado entero dentro (sin servidor,
+sin cuentas). Fase 2 prevista: una IA para jugar solo.
 
-> No sustituye al reglamento: la app mueve fichas, tira dados y lleva la cuenta.
-> Las decisiones de reglas siguen siendo de los entrenadores.
+> Repositorio **privado**. Las reglas se implementan contra
+> [`asantolaria/bloodbowl-my-rosters`](https://github.com/asantolaria/bloodbowl-my-rosters);
+> aquí no se reproduce texto del reglamento (ver `docs/discovery/sources.md`).
 
-> Repositorio **privado**. No incluye material con copyright de Games Workshop; los
-> perfiles de equipo son datos de juego recogidos de fuentes públicas (ver
-> [`docs/discovery/sources.md`](docs/discovery/sources.md)).
-
-## Uso
+## Jugar
 
 ```bash
-xdg-open index.html            # abrir en el navegador local
-python3 -m http.server 8000    # o servirlo para jugar desde el móvil -> http://<ip-del-pc>:8000
+npm run serve        # python3 -m http.server 8000
+# móvil en la misma red → http://<ip-del-pc>:8000
 ```
 
-Pensado para **móvil en vertical**: el campo completo de 15×26 casillas cabe en pantalla
-sin hacer scroll.
+La app usa módulos ES nativos: hace falta servirla (no funciona con doble clic en el
+archivo). No hay build ni dependencias: `node --test` para los tests y listo.
 
-## Qué hace
+- **Un móvil**: os lo vais pasando (hot-seat).
+- **Dos móviles**: al acabar tu turno, «Copiar enlace del turno» y se lo mandas; el
+  enlace lleva la partida comprimida en el fragmento de la URL
+  ([ADR 001](docs/design/adr-001-multijugador-por-enlace.md)).
+- La partida también se guarda sola en el navegador, y hay Deshacer.
 
-**Equipos.** Los 30 equipos oficiales de Season 3, agrupados por tier, con sus
-posicionales (coste, límite, MA/ST/AG/PA/AV y habilidades), su precio de re-roll, si
-admiten boticario y su límite de jugadores grandes. El creador valida presupuesto
-(1.000k por defecto, ajustable en pasos de 50k) y plantilla (11–16 jugadores), e incluye
-un botón de plantilla recomendada para cada equipo.
+## Qué hay implementado (motor con tests)
 
-**Fichas.** Cada jugador es un círculo del color de su equipo con la abreviatura de su
-posicional; los jugadores grandes llevan ficha cuadrada. Derribado se dibuja con la letra
-girada, aturdido con rayado y la letra invertida, y ya activado atenuado. El balón se ve
-como un punto en la ficha del portador.
+- **Equipos**: los 9 con roster inicial a 1.000k del repo de rosters, validados contra
+  las reglas de creación (presupuesto, cupos, hinchas a 5k…).
+- **Secuencia completa**: previa (hinchas, clima, sorteo), despliegue validado con
+  **formaciones rápidas** (Ziggurat, Chevrón, Columnas, Caja, Lanzamiento), patada con
+  desvío y los **11 eventos** de la tabla 2025, turnos, touchdowns, KO, descanso y final.
+- **Acciones declaradas al activar**, como manda el reglamento: Movimiento, Penetración
+  (con objetivo nombrado de antemano y su placaje a 1 MV), Placaje, Pase, Entrega,
+  Falta y Asegurar el balón — las limitadas a una por turno se gastan aunque el rasgo
+  negativo del jugador las arruine.
+- **Placajes**: apoyos ofensivos y defensivos con su condición exacta (batería de tests
+  propia), 1/2/3 dados según FU comparada, empujones con cadena, banda y público,
+  impulso, Furia, y las habilidades: Placar, Forcejear, Esquivar, Placaje defensivo,
+  Luchador, Imparable, Cuernos, Apartar, Mantenerse firme, Echarse a un lado, Zafarse,
+  Robar balón, Golpe mortífero, Garras, Piquete de ojos.
+- **Pases**: tabla oficial de alcances, precisión, pifias, dispersión, intercepción,
+  saque de banda, y Pasar/Pase seguro/Pase a lo loco/Partenubes/Nervios de acero/El
+  balón es mío/Pasar y seguir/Recepción heroica.
+- **Heridas**: armadura, heridas (con Cabeza dura y la tabla de Escurridizos), lesiones,
+  permanentes, Regeneración, Equilibrio firme, apotecario pendiente de UI.
+- **Rasgos negativos**: Estúpido, Realmente estúpido, Ira descontrolada y Ferocidad
+  animal (con el ataque al compañero).
+- Cada tirada queda en un **registro explicado**: qué se tiró, contra qué objetivo y de
+  dónde sale cada modificador.
 
-**Movimiento.** Tocas un jugador y luego una casilla: la app cuenta los pasos frente a su
-MA, avisa de los Rush y marca en rojo las zonas de placaje rivales mientras tienes a
-alguien seleccionado.
-
-**Partido.** Previa automática (afición, clima y moneda, con los dados a la vista),
-despliegue por mitades, patada con desvío D8+D6, evento de patada, turnos y partes,
-touchdowns, recuperación de KO y boticario. El botón Deshacer revierte cualquier acción.
-
-**Dados.** D6, 2D6, 3D6, D8, D16 y dados de placaje de 1, 2 y 3, más las tablas de clima,
-evento de patada, herida, lesión y lesión permanente. Todas las tiradas usan
-`crypto.getRandomValues` y quedan en un historial.
+Pendientes conocidos, con motivo: [`docs/delivery/backlog.md`](docs/delivery/backlog.md)
+(Lanzar compañero, Stalling, ¡A la carga!, Perseguir, prórroga…).
 
 ## Estructura
 
 ```
 bbweb/
-├── index.html          # la aplicación entera (~97 KB: datos, CSS y JS en un archivo)
-├── docs/
-│   ├── design/
-│   │   ├── prd.md            # qué resuelve, alcance y decisiones de producto
-│   │   └── architecture.md   # estado, fases, render y dónde tocar cada cosa
-│   ├── discovery/
-│   │   └── sources.md        # de dónde salen los perfiles y las discrepancias conocidas
-│   └── delivery/
-│       └── backlog.md        # lo que falta y lo que se decidió no hacer
-└── CHANGELOG.md
+├── index.html            la pantalla (CSS + esqueleto); la lógica va en módulos
+├── src/
+│   ├── engine/           el motor de reglas, puro y probado (sin DOM ni nombres)
+│   ├── data/             equipos, habilidades, rosters, formaciones y nombres ES
+│   ├── ui/app.js         tablero táctil, paneles y decisiones de entrenador
+│   └── enlace.js         la partida dentro de la URL
+├── test/                 125 tests (node --test, cero dependencias)
+├── docs/                 PRD, arquitectura, ADRs, fuentes y backlog
+└── legacy/mesa-v0.html   la mesa original sin motor (histórico, autocontenida)
 ```
 
-## Límites conocidos
+## Documentación
 
-- Las **habilidades son informativas**: se muestran, pero la app no las aplica. La tirada
-  de armadura no tiene en cuenta Golpe Mortífero ni Cabeza Dura — corrígelo con Deshacer.
-- Unas **30 habilidades poco comunes** llevan traducción propia, con el nombre inglés
-  entre paréntesis (p. ej. «Mirada Hipnótica (Hypnotic Gaze)»).
-- Los **bloqueos no se resuelven solos**: se tiran los dados y los entrenadores aplican el
-  resultado.
-- La partida vive en `localStorage` de ese navegador. **No hay juego en red.**
-
-Detalle y motivos en [`docs/delivery/backlog.md`](docs/delivery/backlog.md).
+- [PRD](docs/design/prd.md) — objetivos: reglas correctas > jugar a dos > IA.
+- [Arquitectura](docs/design/architecture.md) — módulos, estado y dónde tocar.
+- [ADR 001](docs/design/adr-001-multijugador-por-enlace.md) — el enlace como transporte.
+- [ADR 002](docs/design/adr-002-nombres-separados-del-motor.md) — nombres fuera del motor.
+- [Fuentes](docs/discovery/sources.md) — de dónde sale cada dato y los desempates.

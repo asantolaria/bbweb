@@ -32,8 +32,13 @@ export function crearPartido(local, visitante, { clima = 'perfect_conditions' } 
   };
   [local, visitante].forEach((T, i) => {
     for (const j of T.jugadores) {
-      estado.jugadores[j.id] = {
-        ...j, equipo: i,
+      // Los ids de crearEquipo llevan prefijo de raza: en un espejo (Humanos contra
+      // Humanos) colisionarían y el visitante machacaría al local. Se renombra al
+      // visitante de forma determinista.
+      let id = j.id;
+      while (estado.jugadores[id]) id += 'b';
+      estado.jugadores[id] = {
+        ...j, id, equipo: i,
         situacion: 'reserva', postura: 'de_pie',
         x: -1, y: -1,
         activado: false, aturdidoAlEmpezarTurno: false,
