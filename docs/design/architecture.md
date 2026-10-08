@@ -138,8 +138,10 @@ src/
 │   ├── balon.js       rebote, atrapar y saque de banda
 │   ├── derribo.js     la cadena suelo→armadura→heridas→lesión, con Cabeza dura,
 │   │                  Regeneración y Equilibrio firme
-│   └── movimiento.js  activar (con rasgos negativos), pasos, esquivar, forzar la
-│                      marcha, saltar, levantarse y recoger
+│   ├── movimiento.js  activar (con rasgos negativos), pasos, esquivar, forzar la
+│   │                  marcha, saltar, levantarse y recoger
+│   └── placaje.js     apoyos, dados de placaje, empujones (cadena, banda, público),
+│                      impulso, Furia y Penetración, con sus diez habilidades
 ├── data/          equipos, habilidades y rosters; aparte, los nombres de pantalla
 └── enlace.js      serializar la partida dentro de la URL (ADR 001)
 test/              un fichero por módulo; `npm test` (node --test, sin dependencias)
@@ -201,3 +203,16 @@ para romper la armadura (peor = bajar, 9+ → 8+). Agruparlos costó un test en 
 
 **El 9 de la tabla de Escurridizos no es una Lesión más.** Es Magullado ya resuelto: no se
 tira el D16. En la tabla normal, el 9 ni siquiera es Lesión, es un KO.
+
+## Decisiones de interpretación anotadas
+
+- **Golpe mortífero** («+1 a Armadura o Heridas, a elegir después de tirar»): la elección
+  óptima es mecánica, así que el motor la automatiza — si la armadura falla por 1 exacto
+  se gasta ahí (la alternativa es que no pase nada); si rompe sola, se guarda para las
+  heridas. Queda explicada en el registro de tiradas.
+- **Mantenerse firme en mitad de una cadena**: si el jugador de la cadena no se mueve, la
+  casilla sigue ocupada y el empujón entero queda absorbido (nadie se mueve). El
+  reglamento no cubre el caso explícitamente; interpretación anotada en `placaje.js`.
+- **El resultado «aplicado» manda**: cuando una habilidad convierte un resultado (Imparable
+  o Esquivar convierten en empujón), la función devuelve el resultado aplicado y el dado
+  elegido queda en el registro (`placaje_resultado`).

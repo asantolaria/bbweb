@@ -35,6 +35,7 @@ export function aplicarCabezaDura(h, j) {
  */
 export function resolverSuelo(estado, j, {
   forma, azar, modsArmadura = [], modsHeridas = [], porElPublico = false,
+  golpeMortifero = false, garras = false,
 }) {
   const resultado = { jugador: j.id, forma, final: 'tumbado' };
 
@@ -60,10 +61,34 @@ export function resolverSuelo(estado, j, {
     anotar(estado, 'publico', { jugador: j.id, heridas });
   } else {
     const arm = tiradaArmadura({ ar: j.perfil.ar, mods: modsArmadura, azar });
+
+    // Garras: un 8+ natural rompe la armadura sea cual sea el AR del rival.
+    if (garras && !arm.rota && arm.valor >= 8) {
+      arm.rota = true;
+      arm.porGarras = true;
+    }
+
+    // Golpe mortífero: +1 a Armadura O a Heridas, a elegir DESPUÉS de tirar. La elección
+    // óptima es mecánica: si la armadura falla por 1 exacto, se gasta ahí (si no, no pasa
+    // nada en absoluto); si rompe sola, se guarda para las heridas.
+    let mbEnHeridas = false;
+    if (golpeMortifero) {
+      if (!arm.rota && arm.total + 1 >= j.perfil.ar) {
+        arm.rota = true;
+        arm.mods = [...arm.mods, { v: +1, porque: 'Golpe mortífero (elegido para la armadura)' }];
+        arm.total += 1;
+      } else if (arm.rota) {
+        mbEnHeridas = true;
+      }
+    }
+
     anotar(estado, 'armadura', { jugador: j.id, tirada: arm });
     resultado.armadura = arm;
     if (!arm.rota) return resultado;
-    heridas = tiradaHeridas({ escurridizo: tiene(j.hab, 'stunty'), mods: modsHeridas, azar });
+    const mh = mbEnHeridas
+      ? [...modsHeridas, { v: +1, porque: 'Golpe mortífero (elegido para las heridas)' }]
+      : modsHeridas;
+    heridas = tiradaHeridas({ escurridizo: tiene(j.hab, 'stunty'), mods: mh, azar });
     anotar(estado, 'heridas', { jugador: j.id, tirada: heridas });
   }
 
