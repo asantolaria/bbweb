@@ -1,0 +1,16 @@
+
+.claude/commands/colony
+.claude/commands/meadow
+.claude/commands/hive
+.claude/commands/waggle
+.claude/commands/swarm
+.claude/commands/honey
+.claude/commands/buzz
+.claude/commands/propolis
+.claude/commands/wax
+.claude/commands/maia.md
+.maia/
+
+# scratch / herramientas
+.playwright-mcp/
+*.bak
