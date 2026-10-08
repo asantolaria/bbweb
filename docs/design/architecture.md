@@ -130,12 +130,33 @@ que sí lo hará (ver [PRD](prd.md)). Hasta que esté terminado conviven los dos
 ```
 src/
 ├── engine/        motor puro: ni DOM, ni localStorage, ni nombres propios
-│   ├── dice.js       dados y chequeos con modificadores justificados
-│   └── heridas.js    armadura, heridas, lesiones y permanentes
-├── data/          perfiles de equipo y, aparte, los nombres de pantalla
+│   ├── dice.js        dados y chequeos con modificadores justificados
+│   ├── heridas.js     tablas de armadura, heridas, lesiones y permanentes
+│   ├── equipo.js      coste y validación de rosters; crearEquipo()
+│   ├── tablero.js     geometría del campo (15×26, zonas, direcciones D8)
+│   ├── partido.js     estado del partido, marcaje y zonas de defensa
+│   ├── balon.js       rebote, atrapar y saque de banda
+│   ├── derribo.js     la cadena suelo→armadura→heridas→lesión, con Cabeza dura,
+│   │                  Regeneración y Equilibrio firme
+│   └── movimiento.js  activar (con rasgos negativos), pasos, esquivar, forzar la
+│                      marcha, saltar, levantarse y recoger
+├── data/          equipos, habilidades y rosters; aparte, los nombres de pantalla
 └── enlace.js      serializar la partida dentro de la URL (ADR 001)
 test/              un fichero por módulo; `npm test` (node --test, sin dependencias)
 ```
+
+## El estado del partido
+
+`crearPartido()` devuelve un objeto JSON serializable (tiene que caber en el enlace).
+Posturas: `de_pie | distraido | tumbado | aturdido`; situaciones:
+`reserva | campo | ko | lesionado | expulsado`. Todo evento con dados se apila en
+`estado.registro` con sus modificadores explicados — de ahí saldrá el panel de
+«ver tiradas» de la interfaz.
+
+Los rerolls de equipo no los decide el motor: las funciones de movimiento aceptan un
+callback `alFallar(tipo, chequeo)` que la capa de turno (o la UI) usa para preguntar al
+entrenador. Las repeticiones de habilidad (Esquivar, Manos seguras, Atrapar) se aplican
+solas porque son gratis y no hay razón para no usarlas.
 
 ## Tres reglas de la casa
 

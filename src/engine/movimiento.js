@@ -1,0 +1,365 @@
+// Activación y movimiento: declarar acción (con los rasgos negativos), levantarse,
+// paso a paso con Esquivar, Forzar la marcha, Saltar y recoger el balón.
+//
+// Fuente: source/tablas/acciones-y-modificadores.md («Acciones», «Movimiento»)
+// y los rasgos negativos de source/habilidades/rasgos.md.
+
+import { tirar, chequeo } from './dice.js';
+import { enCampo, sonAdyacentes } from './tablero.js';
+import { jugador, enCasilla, marcadoresDe, estaMarcado, anotar, tieneZonaDefensa } from './partido.js';
+import { tiene } from '../data/habilidades.js';
+import { resolverSuelo } from './derribo.js';
+import { rebotar } from './balon.js';
+
+/** Acciones limitadas a 1 por turno de equipo. */
+const UNA_POR_TURNO = new Set(['blitz', 'pass', 'handoff', 'foul', 'ttm', 'secure']);
+
+export const MAX_RUSH = 2;
+
+/**
+ * Declara la acción de un jugador y resuelve los rasgos que se tiran «tras declarar»
+ * (Estúpido, Realmente estúpido, Ira descontrolada, Ferocidad animal).
+ *
+ * Si el rasgo falla, la acción CUENTA como declarada igualmente (nadie más puede hacer
+ * la Penetración ese turno aunque el Troll se quede mirando las nubes).
+ */
+export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = null } = {}) {
+  const j = jugador(estado, jugadorId);
+  if (estado.turnover) throw new Error('El turno ha terminado.');
+  if (estado.activacion) throw new Error(`Ya hay una activación en curso (${estado.activacion.jugador}).`);
+  if (j.equipo !== estado.activo) throw new Error(`${jugadorId} no es del equipo activo.`);
+  if (j.situacion !== 'campo') throw new Error(`${jugadorId} no está en el campo.`);
+  if (j.activado) throw new Error(`${jugadorId} ya se activó este turno.`);
+  if (j.postura === 'aturdido') throw new Error(`${jugadorId} está aturdido: no puede activarse.`);
+  if (UNA_POR_TURNO.has(accion) && estado.usadas[accion]) {
+    throw new Error(`La acción ${accion} ya se declaró este turno.`);
+  }
+
+  j.activado = true;
+  if (UNA_POR_TURNO.has(accion)) estado.usadas[accion] = true;
+  // Distraído: se quita al activarse, antes de declarar (FAQ).
+  if (j.postura === 'distraido') j.postura = 'de_pie';
+
+  estado.activacion = {
+    jugador: jugadorId, accion,
+    mvGastado: 0, rushUsados: 0, esquivarUsado: false, terminada: false,
+  };
+  anotar(estado, 'activacion', { jugador: jugadorId, accion });
+
+  const negatraits = resolverRasgosNegativos(estado, j, accion, { azar, companeroObjetivo });
+  if (negatraits?.terminaActivacion) terminarActivacion(estado);
+  return negatraits;
+}
+
+function resolverRasgosNegativos(estado, j, accion, { azar, companeroObjetivo }) {
+  const esAtaque = accion === 'block' || accion === 'blitz';
+
+  // Estúpido (Bone Head): 1D6, 2+ sigue; 1 = Distraído y la activación termina.
+  if (tiene(j.hab, 'bone_head')) {
+    const c = chequeo({ objetivo: 2, azar, motivo: `Estúpido (${j.id})` });
+    anotar(estado, 'bone_head', { jugador: j.id, chequeo: c });
+    if (!c.exito) { j.postura = 'distraido'; return { rasgo: 'bone_head', fallo: true, terminaActivacion: true }; }
+  }
+
+  // Realmente estúpido: 4+ (con +2 si hay compañero de pie no distraído y sin el rasgo al lado).
+  if (tiene(j.hab, 'really_stupid')) {
+    const ayuda = Object.values(estado.jugadores).some((c) =>
+      c.equipo === j.equipo && c.id !== j.id && tieneZonaDefensa(c) &&
+      !tiene(c.hab, 'really_stupid') && sonAdyacentes(c.x, c.y, j.x, j.y));
+    const mods = ayuda ? [{ v: +2, porque: 'compañero de pie adyacente que le explica qué hacer' }] : [];
+    const c = chequeo({ objetivo: 4, mods, azar, motivo: `Realmente estúpido (${j.id})` });
+    anotar(estado, 'really_stupid', { jugador: j.id, chequeo: c });
+    if (!c.exito) { j.postura = 'distraido'; return { rasgo: 'really_stupid', fallo: true, terminaActivacion: true }; }
+  }
+
+  // Ira descontrolada: 4+ (+2 en Placaje/Penetración); si falla, ruge y pierde la activación.
+  if (tiene(j.hab, 'unchannelled_fury')) {
+    const mods = esAtaque ? [{ v: +2, porque: 'va a pegar a alguien (Placaje o Penetración)' }] : [];
+    const c = chequeo({ objetivo: 4, mods, azar, motivo: `Ira descontrolada (${j.id})` });
+    anotar(estado, 'unchannelled_fury', { jugador: j.id, chequeo: c });
+    if (!c.exito) return { rasgo: 'unchannelled_fury', fallo: true, terminaActivacion: true };
+  }
+
+  // Ferocidad animal: 4+ (+2 en Placaje/Penetración); si falla, derriba a un compañero
+  // adyacente de pie (y después PUEDE continuar su activación, FAQ). Sin compañero al
+  // lado, se queda Distraído y la activación termina.
+  if (tiene(j.hab, 'animal_savagery')) {
+    const mods = esAtaque ? [{ v: +2, porque: 'va a pegar a alguien (Placaje o Penetración)' }] : [];
+    const c = chequeo({ objetivo: 4, mods, azar, motivo: `Ferocidad animal (${j.id})` });
+    anotar(estado, 'animal_savagery', { jugador: j.id, chequeo: c });
+    if (!c.exito) {
+      const candidatos = Object.values(estado.jugadores).filter((v) =>
+        v.equipo === j.equipo && v.id !== j.id && v.situacion === 'campo' &&
+        (v.postura === 'de_pie' || v.postura === 'distraido') && sonAdyacentes(v.x, v.y, j.x, j.y));
+      if (!candidatos.length) {
+        j.postura = 'distraido';
+        return { rasgo: 'animal_savagery', fallo: true, terminaActivacion: true };
+      }
+      const victima = candidatos.find((v) => v.id === companeroObjetivo) ?? candidatos[0];
+      const llevabaBalon = estado.balon?.portador === victima.id;
+      // Con Golpe mortífero debe usarlo contra el compañero.
+      const modsArmadura = tiene(j.hab, 'mighty_blow')
+        ? [{ v: +1, porque: 'Golpe mortífero (obligado contra su compañero)' }] : [];
+      const suelo = resolverSuelo(estado, victima, { forma: 'derribado', azar, modsArmadura });
+      anotar(estado, 'ataque_a_companero', { jugador: j.id, victima: victima.id, resultado: suelo.final });
+      // Sin cambio de turno salvo que la víctima llevara el balón.
+      if (suelo.final !== 'de_pie' && llevabaBalon) {
+        estado.turnover = { causa: 'portador_derribado' };
+      }
+      return { rasgo: 'animal_savagery', fallo: true, victima: victima.id, terminaActivacion: false };
+    }
+  }
+  return { fallo: false };
+}
+
+/** MV efectivo del jugador en esta activación. */
+export const mvRestante = (estado) => {
+  const a = estado.activacion;
+  const j = jugador(estado, a.jugador);
+  return j.perfil.mv - a.mvGastado;
+};
+
+export function terminarActivacion(estado) {
+  if (estado.activacion) estado.activacion.terminada = true;
+  estado.activacion = null;
+}
+
+/**
+ * Levantarse: cuesta 3 de MV, lo primero de la activación. Con MV ≤ 2: 1D6, con 4+ se
+ * levanta gastando todo su MV; con 1-3 sigue tumbado y la activación termina.
+ */
+export function levantarse(estado, { azar } = {}) {
+  const a = estado.activacion;
+  if (!a) throw new Error('No hay activación en curso.');
+  const j = jugador(estado, a.jugador);
+  if (j.postura !== 'tumbado') throw new Error(`${j.id} no está tumbado.`);
+  if (a.mvGastado > 0) throw new Error('Levantarse va antes de moverse.');
+
+  if (j.perfil.mv <= 2) {
+    const c = chequeo({ objetivo: 4, azar, motivo: `levantarse con MV ${j.perfil.mv} (${j.id})` });
+    anotar(estado, 'levantarse_dificil', { jugador: j.id, chequeo: c });
+    if (!c.exito) { terminarActivacion(estado); return { exito: false, chequeo: c }; }
+    j.postura = 'de_pie';
+    a.mvGastado = j.perfil.mv; // todo su MV
+    return { exito: true, chequeo: c };
+  }
+  j.postura = 'de_pie';
+  a.mvGastado += 3;
+  anotar(estado, 'levantarse', { jugador: j.id });
+  return { exito: true };
+}
+
+/**
+ * Un paso de movimiento a una casilla adyacente libre.
+ *
+ * Orden de tiradas en la misma casilla (acciones-y-modificadores.md):
+ * Forzar la marcha → Esquivar → recoger el balón.
+ *
+ * `alFallar(tipo, chequeo)` → true para repetir con reroll de equipo (lo decide la capa
+ * de turno o la UI); las repeticiones de habilidad (Esquivar) se aplican solas.
+ */
+export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false } = {}) {
+  const a = estado.activacion;
+  if (!a) throw new Error('No hay activación en curso.');
+  const j = jugador(estado, a.jugador);
+  if (j.postura === 'tumbado') throw new Error(`${j.id} debe levantarse primero.`);
+  if (!enCampo(destinoX, destinoY)) throw new Error('Fuera del campo.');
+  if (!sonAdyacentes(j.x, j.y, destinoX, destinoY)) throw new Error('Solo a una casilla adyacente.');
+  if (enCasilla(estado, destinoX, destinoY)) throw new Error('La casilla está ocupada.');
+
+  // 1. ¿Hace falta Forzar la marcha?
+  if (a.mvGastado >= j.perfil.mv) {
+    if (a.rushUsados >= MAX_RUSH) throw new Error('Sin movimiento: ya forzó la marcha dos veces.');
+    a.rushUsados++;
+    const mods = estado.clima === 'blizzard' ? [{ v: -1, porque: 'Ventisca' }] : [];
+    let c = chequeo({ objetivo: 2, mods, azar, motivo: `Forzar la marcha (${j.id})` });
+    anotar(estado, 'rush', { jugador: j.id, chequeo: c });
+    if (!c.exito && alFallar('rush', c)) {
+      gastarReroll(estado, j.equipo);
+      c = chequeo({ objetivo: 2, mods, azar, motivo: `Forzar la marcha (${j.id}, reroll)` });
+      anotar(estado, 'rush_reroll', { jugador: j.id, chequeo: c });
+    }
+    if (!c.exito) {
+      moverA(estado, j, destinoX, destinoY);
+      return caerse(estado, j, { azar, causa: 'rush' });
+    }
+  }
+
+  // 2. ¿Esquiva? (sale de una casilla donde está marcado)
+  const marcadoAqui = estaMarcado(estado, j);
+  const origen = [j.x, j.y];
+  if (marcadoAqui) {
+    const r = esquivar(estado, j, origen, [destinoX, destinoY], { azar, alFallar });
+    if (!r.exito) {
+      moverA(estado, j, destinoX, destinoY);
+      a.mvGastado++;
+      return caerse(estado, j, { azar, causa: 'esquivar', modsArmadura: r.modsArmadura });
+    }
+  }
+
+  // 3. Llega.
+  moverA(estado, j, destinoX, destinoY);
+  a.mvGastado++;
+
+  // 4. ¿Hay balón suelto en la casilla? Recogida obligatoria (movimiento voluntario).
+  if (estado.balon && !estado.balon.portador &&
+      estado.balon.x === destinoX && estado.balon.y === destinoY) {
+    return recogerBalon(estado, j, { azar, alFallar });
+  }
+  return { exito: true };
+}
+
+function moverA(estado, j, x, y) {
+  j.x = x; j.y = y;
+}
+
+function gastarReroll(estado, equipo) {
+  const E = estado.equipos[equipo];
+  if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
+  E.rerolls--;
+  anotar(estado, 'reroll_equipo', { equipo });
+}
+
+/** El chequeo de esquivar, con Escurridizo, Cola prensil y la habilidad Esquivar. */
+function esquivar(estado, j, [ox, oy], [dx, dy], { azar, alFallar }) {
+  const a = estado.activacion;
+  const mods = [];
+
+  // −1 por rival que marque la casilla de destino… salvo Escurridizo.
+  if (!tiene(j.hab, 'stunty')) {
+    for (const m of marcadoresDe(estado, j.equipo, dx, dy)) {
+      mods.push({ v: -1, porque: `${m.id} marca el destino` });
+    }
+  } else {
+    anotar(estado, 'stunty', { jugador: j.id, efecto: 'ignora los marcadores al esquivar' });
+  }
+
+  // Cola prensil: −1 adicional si sale de la zona de defensa de quien la tiene (solo una).
+  const conCola = marcadoresDe(estado, j.equipo, ox, oy).find((m) => tiene(m.hab, 'prehensile_tail'));
+  if (conCola) mods.push({ v: -1, porque: `Cola prensil de ${conCola.id}` });
+
+  let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id})` });
+  anotar(estado, 'esquivar', { jugador: j.id, de: [ox, oy], a: [dx, dy], chequeo: c });
+
+  // La habilidad Esquivar: una repetición de esquiva por turno, antes que el reroll de equipo.
+  if (!c.exito && tiene(j.hab, 'dodge') && !a.esquivarUsado) {
+    a.esquivarUsado = true;
+    c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, repite por Esquivar)` });
+    anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: 'dodge', chequeo: c });
+  }
+  if (!c.exito && alFallar('esquivar', c)) {
+    gastarReroll(estado, j.equipo);
+    c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, reroll de equipo)` });
+    anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: null, chequeo: c });
+  }
+
+  // Llave de brazo: si cae al fallar la esquiva, +1 a Armadura o Heridas (solo uno).
+  const modsArmadura = [];
+  if (!c.exito) {
+    const conLlave = marcadoresDe(estado, j.equipo, ox, oy).find((m) => tiene(m.hab, 'arm_bar'));
+    if (conLlave) modsArmadura.push({ v: +1, porque: `Llave de brazo de ${conLlave.id}` });
+  }
+  return { exito: c.exito, chequeo: c, modsArmadura };
+}
+
+/** Recoger el balón al entrar en su casilla durante la activación. */
+function recogerBalon(estado, j, { azar, alFallar }) {
+  const mods = [];
+  for (const m of marcadoresDe(estado, j.equipo, j.x, j.y)) {
+    mods.push({ v: -1, porque: `${m.id} marca al jugador` });
+  }
+  if (estado.clima === 'pouring_rain') mods.push({ v: -1, porque: 'Lluvia torrencial' });
+
+  let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger el balón (${j.id})` });
+  anotar(estado, 'recoger', { jugador: j.id, chequeo: c });
+  if (!c.exito && tiene(j.hab, 'sure_hands')) {
+    c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, repite por Manos seguras)` });
+    anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: 'sure_hands', chequeo: c });
+  }
+  if (!c.exito && alFallar('recoger', c)) {
+    gastarReroll(estado, j.equipo);
+    c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, reroll de equipo)` });
+    anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: null, chequeo: c });
+  }
+
+  if (c.exito) {
+    estado.balon = { portador: j.id };
+    anotar(estado, 'balon_recogido', { jugador: j.id });
+    return { exito: true, balon: true };
+  }
+  // Falla: el balón rebota y hay cambio de turno.
+  estado.balon = { x: j.x, y: j.y };
+  rebotar(estado, j.x, j.y, { azar });
+  estado.turnover = { causa: 'recogida_fallida' };
+  terminarActivacion(estado);
+  return { exito: false, turnover: true };
+}
+
+/** La caída de un jugador del equipo activo durante su activación. */
+function caerse(estado, j, { azar, causa, modsArmadura = [] }) {
+  const resultado = resolverSuelo(estado, j, { forma: 'caida', azar, modsArmadura });
+  anotar(estado, 'caida', { jugador: j.id, causa, final: resultado.final });
+  if (resultado.final === 'de_pie') return { exito: true, evitado: 'steady_footing' }; // Equilibrio firme
+  estado.turnover = { causa: `caida_${causa}` };
+  terminarActivacion(estado);
+  return { exito: false, caida: resultado, turnover: true };
+}
+
+/**
+ * Saltar por encima de un jugador tumbado o aturdido: cuesta 2 de MV, chequeo de AG con
+ * −1 por rival que marque el origen o el destino (lo que sea peor). Con 1 natural cae
+ * en el origen; si falla, cae en el destino.
+ */
+export function saltar(estado, destinoX, destinoY, { azar, alFallar = () => false } = {}) {
+  const a = estado.activacion;
+  if (!a) throw new Error('No hay activación en curso.');
+  const j = jugador(estado, a.jugador);
+
+  const dx = destinoX - j.x, dy = destinoY - j.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2) throw new Error('El salto cruza exactamente una casilla.');
+  const sobre = enCasilla(estado, j.x + Math.sign(dx), j.y + Math.sign(dy));
+  if (!sobre || (sobre.postura !== 'tumbado' && sobre.postura !== 'aturdido')) {
+    throw new Error('Solo se salta por encima de un jugador tumbado o aturdido.');
+  }
+  if (!enCampo(destinoX, destinoY) || enCasilla(estado, destinoX, destinoY)) {
+    throw new Error('El destino debe ser una casilla libre del campo.');
+  }
+
+  // Cuesta 2 MV; si no quedan, Forzar la marcha ANTES del salto (cae en el origen si falla).
+  for (let i = 0; i < 2; i++) {
+    if (a.mvGastado >= j.perfil.mv) {
+      if (a.rushUsados >= MAX_RUSH) throw new Error('Sin movimiento para saltar.');
+      a.rushUsados++;
+      const mods = estado.clima === 'blizzard' ? [{ v: -1, porque: 'Ventisca' }] : [];
+      const c = chequeo({ objetivo: 2, mods, azar, motivo: `Forzar la marcha antes del salto (${j.id})` });
+      anotar(estado, 'rush', { jugador: j.id, chequeo: c });
+      if (!c.exito) return caerse(estado, j, { azar, causa: 'rush' }); // en la casilla en la que está
+    } else {
+      a.mvGastado++;
+    }
+  }
+
+  // Escurridizo ignora marcadores «al esquivar», no al saltar: aquí cuentan todos.
+  const porOrigen = marcadoresDe(estado, j.equipo, j.x, j.y);
+  const porDestino = marcadoresDe(estado, j.equipo, destinoX, destinoY);
+  const peor = porOrigen.length >= porDestino.length ? porOrigen : porDestino;
+  const mods = peor.map((m) => ({ v: -1, porque: `${m.id} marca ${peor === porOrigen ? 'el origen' : 'el destino'}` }));
+  const conCola = marcadoresDe(estado, j.equipo, j.x, j.y).find((m) => tiene(m.hab, 'prehensile_tail'));
+  if (conCola) mods.push({ v: -1, porque: `Cola prensil de ${conCola.id}` });
+
+  let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `saltar (${j.id})` });
+  anotar(estado, 'saltar', { jugador: j.id, a: [destinoX, destinoY], chequeo: c });
+  if (!c.exito && alFallar('saltar', c)) {
+    gastarReroll(estado, j.equipo);
+    c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `saltar (${j.id}, reroll de equipo)` });
+    anotar(estado, 'saltar_reroll', { jugador: j.id, chequeo: c });
+  }
+
+  if (c.exito) {
+    j.x = destinoX; j.y = destinoY;
+    return { exito: true };
+  }
+  // Con 1 natural cae en el origen; si no, en el destino. La activación termina.
+  if (!c.natural1) { j.x = destinoX; j.y = destinoY; }
+  return caerse(estado, j, { azar, causa: 'saltar' });
+}
