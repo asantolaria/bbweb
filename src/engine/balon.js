@@ -14,7 +14,7 @@ import { tiene } from '../data/habilidades.js';
  * al receptor, −1 con Lluvia. Tumbados, aturdidos o distraídos fallan automáticamente.
  * Atrapar (Catch) permite repetir el chequeo fallido.
  */
-export function intentarAtrapar(estado, j, { rebotado = false, saqueDeBanda = false, azar }) {
+export function intentarAtrapar(estado, j, { rebotado = false, saqueDeBanda = false, paseObjetivo = false, azar }) {
   if (!tieneZonaDefensa(j)) {
     anotar(estado, 'atrapar_imposible', { jugador: j.id, porque: `está ${j.postura}` });
     return { exito: false, automatico: true };
@@ -22,10 +22,17 @@ export function intentarAtrapar(estado, j, { rebotado = false, saqueDeBanda = fa
   const mods = [];
   if (rebotado) mods.push({ v: -1, porque: 'el balón rebotó' });
   if (saqueDeBanda) mods.push({ v: -1, porque: 'viene de un saque de banda' });
-  for (const m of marcadoresDe(estado, j.equipo, j.x, j.y)) {
-    mods.push({ v: -1, porque: `${m.id} marca al receptor` });
+  // Nervios de acero ignora los marcadores al atrapar.
+  if (!tiene(j.hab, 'nerves_of_steel')) {
+    for (const m of marcadoresDe(estado, j.equipo, j.x, j.y)) {
+      mods.push({ v: -1, porque: `${m.id} marca al receptor` });
+    }
   }
   if (estado.clima === 'pouring_rain') mods.push({ v: -1, porque: 'Lluvia torrencial' });
+  // Recepción heroica: +1 si atrapa en la casilla objetivo de un pase.
+  if (paseObjetivo && tiene(j.hab, 'diving_catch')) {
+    mods.push({ v: +1, porque: 'Recepción heroica en la casilla objetivo' });
+  }
 
   let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `atrapar (${j.id})` });
   anotar(estado, 'atrapar', { jugador: j.id, chequeo: c });

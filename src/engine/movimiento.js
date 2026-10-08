@@ -35,10 +35,25 @@ export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = n
     throw new Error(`La acción ${accion} ya se declaró este turno.`);
   }
 
+  // Asegurar el balón: solo con el balón suelto, sin rivales de pie no distraídos a 2
+  // casillas al declarar, y la declaran ni Big Guys ni jugadores con Tembloroso.
+  if (accion === 'secure') {
+    const b = estado.balon;
+    if (!b || b.portador) throw new Error('Asegurar el balón exige un balón suelto.');
+    if (j.grande) throw new Error('Los jugadores grandes no pueden Asegurar el balón.');
+    if (tiene(j.hab, 'unsteady')) throw new Error('Tembloroso: no puede Asegurar el balón.');
+    const rivalCerca = Object.values(estado.jugadores).some((r) =>
+      r.equipo !== j.equipo && tieneZonaDefensa(r) &&
+      Math.max(Math.abs(r.x - b.x), Math.abs(r.y - b.y)) <= 2);
+    if (rivalCerca) throw new Error('Hay un rival de pie a 2 casillas del balón.');
+  }
+
   j.activado = true;
   if (UNA_POR_TURNO.has(accion)) estado.usadas[accion] = true;
-  // Distraído: se quita al activarse, antes de declarar (FAQ).
+  // Distraído: se quita al activarse, antes de declarar (FAQ). También recupera los
+  // apoyos que le quitó un Piquete de ojos.
   if (j.postura === 'distraido') j.postura = 'de_pie';
+  j.sinApoyos = false;
 
   estado.activacion = {
     jugador: jugadorId, accion,
@@ -125,6 +140,23 @@ export function terminarActivacion(estado) {
 }
 
 /**
+ * Cierra la activación por decisión del entrenador. Una acción de Asegurar el balón
+ * que no termina en la casilla del balón es cambio de turno.
+ */
+export function terminarAccion(estado) {
+  const a = estado.activacion;
+  if (!a) return;
+  if (a.accion === 'secure') {
+    const j = jugador(estado, a.jugador);
+    if (estado.balon?.portador !== j.id) {
+      anotar(estado, 'asegurar_incumplido', { jugador: j.id });
+      estado.turnover = { causa: 'asegurar_incumplido' };
+    }
+  }
+  terminarActivacion(estado);
+}
+
+/**
  * Levantarse: cuesta 3 de MV, lo primero de la activación. Con MV ≤ 2: 1D6, con 4+ se
  * levanta gastando todo su MV; con 1-3 sigue tumbado y la activación termina.
  */
@@ -158,7 +190,7 @@ export function levantarse(estado, { azar } = {}) {
  * `alFallar(tipo, chequeo)` → true para repetir con reroll de equipo (lo decide la capa
  * de turno o la UI); las repeticiones de habilidad (Esquivar) se aplican solas.
  */
-export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false } = {}) {
+export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false, ...opcionesPaso } = {}) {
   const a = estado.activacion;
   if (!a) throw new Error('No hay activación en curso.');
   const j = jugador(estado, a.jugador);
@@ -185,9 +217,17 @@ export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false 
     }
   }
 
+  // Dejada (Fumblerooski): el portador puede dejar el balón en la casilla que abandona.
+  const origen = [j.x, j.y];
+  if (opcionesPaso?.dejarBalon) {
+    if (estado.balon?.portador !== j.id) throw new Error(`${j.id} no lleva el balón.`);
+    if (!tiene(j.hab, 'fumblerooski')) throw new Error('Hace falta Dejada para soltar sin rebote.');
+    estado.balon = { x: j.x, y: j.y };
+    anotar(estado, 'dejada', { jugador: j.id, en: origen });
+  }
+
   // 2. ¿Esquiva? (sale de una casilla donde está marcado)
   const marcadoAqui = estaMarcado(estado, j);
-  const origen = [j.x, j.y];
   if (marcadoAqui) {
     const r = esquivar(estado, j, origen, [destinoX, destinoY], { azar, alFallar });
     if (!r.exito) {
@@ -264,6 +304,22 @@ function esquivar(estado, j, [ox, oy], [dx, dy], { azar, alFallar }) {
 
 /** Recoger el balón al entrar en su casilla durante la activación. */
 function recogerBalon(estado, j, { azar, alFallar }) {
+  // Asegurar el balón: recogida a 2+ (no es un chequeo de AG), sin repeticiones de
+  // Manos seguras; la activación termina al recogerlo.
+  if (estado.activacion.accion === 'secure') {
+    const c = chequeo({ objetivo: 2, azar, motivo: `asegurar el balón (${j.id})` });
+    anotar(estado, 'asegurar', { jugador: j.id, chequeo: c });
+    if (c.exito) {
+      estado.balon = { portador: j.id };
+      terminarActivacion(estado);
+      return { exito: true, balon: true };
+    }
+    estado.balon = { x: j.x, y: j.y };
+    rebotar(estado, j.x, j.y, { azar });
+    estado.turnover = { causa: 'asegurar_fallido' };
+    terminarActivacion(estado);
+    return { exito: false, turnover: true };
+  }
   const mods = [];
   for (const m of marcadoresDe(estado, j.equipo, j.x, j.y)) {
     mods.push({ v: -1, porque: `${m.id} marca al jugador` });

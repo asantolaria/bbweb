@@ -140,8 +140,13 @@ src/
 │   │                  Regeneración y Equilibrio firme
 │   ├── movimiento.js  activar (con rasgos negativos), pasos, esquivar, forzar la
 │   │                  marcha, saltar, levantarse y recoger
-│   └── placaje.js     apoyos, dados de placaje, empujones (cadena, banda, público),
-│                      impulso, Furia y Penetración, con sus diez habilidades
+│   ├── placaje.js     apoyos, dados de placaje, empujones (cadena, banda, público),
+│   │                  impulso, Furia y Penetración, con sus diez habilidades
+│   ├── pase.js        pase y entrega: alcances (tabla oficial), precisión, pifia,
+│   │                  dispersión, intercepción y las habilidades de pase
+│   ├── falta.js       falta con apoyos, expulsión por dobles, protesta y soborno
+│   └── secuencia.js   previa, despliegue, patada y sus 11 eventos, turnos, touchdown,
+│                      final de entrada, descanso y final de partido
 ├── data/          equipos, habilidades y rosters; aparte, los nombres de pantalla
 └── enlace.js      serializar la partida dentro de la URL (ADR 001)
 test/              un fichero por módulo; `npm test` (node --test, sin dependencias)

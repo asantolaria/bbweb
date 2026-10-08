@@ -35,18 +35,19 @@ export function aplicarCabezaDura(h, j) {
  */
 export function resolverSuelo(estado, j, {
   forma, azar, modsArmadura = [], modsHeridas = [], porElPublico = false,
-  golpeMortifero = false, garras = false,
+  golpeMortifero = false, garras = false, yaEnElSuelo = false,
 }) {
-  const resultado = { jugador: j.id, forma, final: 'tumbado' };
+  const resultado = { jugador: j.id, forma, final: yaEnElSuelo ? j.postura : 'tumbado' };
 
-  // Equilibrio firme: 1D6, con 6 no cae (solo contra «derribado» o «caerse»).
-  if ((forma === 'caida' || forma === 'derribado') && tiene(j.hab, 'steady_footing') && !porElPublico) {
+  // Equilibrio firme: 1D6, con 6 no cae (solo contra «derribado» o «caerse», y nunca
+  // para quien ya está en el suelo, como la víctima de una Falta).
+  if (!yaEnElSuelo && (forma === 'caida' || forma === 'derribado') && tiene(j.hab, 'steady_footing') && !porElPublico) {
     const d = tirar(6, { azar, motivo: `Equilibrio firme (${j.id})` });
     anotar(estado, 'equilibrio_firme', { jugador: j.id, d6: d.valor, evita: d.valor === 6 });
     if (d.valor === 6) return { ...resultado, final: 'de_pie', evitadoPor: 'steady_footing' };
   }
 
-  j.postura = 'tumbado';
+  if (!yaEnElSuelo) j.postura = 'tumbado';
   soltarBalon(estado, j, { azar });
 
   if (forma === 'tumbado' && !porElPublico) {

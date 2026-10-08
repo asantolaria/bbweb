@@ -34,6 +34,7 @@ const PREFERENCIA_ATAQUE = ['pow', 'stumble', 'push', 'both_down', 'player_down'
  */
 export function apoyos(estado, atacante, objetivo) {
   const puedeApoyar = (companero, rivalMarcado, unicoRivalPermitido) => {
+    if (companero.sinApoyos) return false; // Piquete de ojos
     if (!tieneZonaDefensa(companero)) return false;
     if (!sonAdyacentes(companero.x, companero.y, rivalMarcado.x, rivalMarcado.y)) return false;
     const rivales = marcadoresDe(estado, companero.equipo, companero.x, companero.y);
@@ -167,6 +168,12 @@ export function empujar(estado, empujadoPor, objetivo, {
 
   objetivo.x = casilla.x; objetivo.y = casilla.y;
   anotar(estado, 'empujon', { jugador: objetivo.id, de: [origen.x, origen.y], a: [casilla.x, casilla.y] });
+
+  // Piquete de ojos: el empujado no da apoyos hasta que vuelva a activarse.
+  if (tiene(empujadoPor.hab ?? [], 'eye_gouge')) {
+    objetivo.sinApoyos = true;
+    anotar(estado, 'piquete_de_ojos', { jugador: objetivo.id, por: empujadoPor.id });
+  }
 
   // Empujado sobre un balón suelto: rebota (sin cambio de turno).
   if (estado.balon && !estado.balon.portador &&
