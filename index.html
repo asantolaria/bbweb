@@ -55,18 +55,29 @@ main{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align
 .c.tz::after{content:"";position:absolute;inset:1px;background:rgba(184,57,44,.28);border-radius:2px;pointer-events:none}
 .c.ok::after{content:"";position:absolute;inset:1px;background:rgba(214,166,64,.3);border-radius:2px;pointer-events:none}
 
-.tk{position:relative;width:84%;height:84%;border-radius:50%;background:var(--c);color:var(--t);display:grid;place-items:center;border:2px solid rgba(255,255,255,.92);box-shadow:0 1px 2px rgba(0,0,0,.45);font-weight:800;font-size:calc(var(--cell)*.42);letter-spacing:-.02em;z-index:1}
+.tk{position:relative;width:84%;height:84%;border-radius:50%;background:var(--c);color:var(--t);display:grid;place-items:center;border:2.5px solid var(--anillo,rgba(255,255,255,.92));box-shadow:0 1px 2px rgba(0,0,0,.45);font-weight:800;font-size:calc(var(--cell)*.42);letter-spacing:-.02em;z-index:1}
 .tk.big{border-radius:24%;width:96%;height:96%;border-width:2.5px}
 .tk span{display:block;transition:transform .15s}
-.tk.tumbado{background:rgba(0,0,0,.25);color:#fff;border-color:var(--c);border-width:3px}
+.tk.tumbado{background:rgba(0,0,0,.3);color:#fff;border-width:3px}
 .tk.tumbado span{transform:rotate(-90deg)}
-.tk.aturdido{background:repeating-linear-gradient(45deg,var(--c) 0 3px,rgba(0,0,0,.55) 3px 6px);color:#fff;border-color:var(--c);border-style:dashed}
+.tk.aturdido{background:repeating-linear-gradient(45deg,var(--c) 0 3px,rgba(0,0,0,.55) 3px 6px);color:#fff;border-style:dashed}
 .tk.aturdido span{transform:rotate(180deg)}
 .tk.distraido{opacity:.75;border-style:dotted}
 .tk.act{opacity:.45;filter:grayscale(.85)}
 .tk.sel{outline:3px solid var(--brass);outline-offset:1px;opacity:1}
-.bc{position:absolute;top:-3px;right:-3px;width:42%;height:42%;border-radius:50%;background:#7a4a22;border:2px solid var(--brass)}
-.c .ball{width:46%;height:46%;border-radius:50%;background:#7a4a22;border:2px solid var(--brass);box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.bc{position:absolute;top:-5px;right:-5px;width:60%;height:60%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.c .ball{width:78%;height:78%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.bc svg,.ball svg{width:100%;height:100%;display:block}
+
+/* Ficha del jugador en el panel */
+.carta{display:flex;gap:10px;align-items:flex-start}
+.carta .mini{flex:none;width:34px;height:34px;display:grid;place-items:center}
+.carta .mini .tk{width:100%;height:100%;font-size:.95rem}
+.carta .datos{min-width:0;flex:1;line-height:1.3}
+.carta .nom{font-weight:700}
+.carta .est{font-size:.76rem;font-weight:600}
+.carta .est.mal{color:var(--bad)}
+.carta .est.bien{color:var(--good)}
 
 /* Panel inferior */
 footer{flex:none;background:var(--panel);border-top:1px solid var(--line)}

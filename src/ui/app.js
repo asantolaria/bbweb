@@ -191,6 +191,29 @@ function tareaActual() {
 /* ---------- textos ---------- */
 
 const etiqueta = (j) => `${POSICIONES_ES[j.pos] ?? j.pos} #${j.dorsal}`;
+
+/** Anillo de peana por rol (convención NAF): gris línea, verde bloqueador, rojo
+ *  blitzer, blanco lanzador, amarillo receptor, azul especialista, negro Big Guy. */
+const ANILLO = {
+  linea: '#b9c0c7', bloqueador: '#2f9e44', blitzer: '#e03131', lanzador: '#ffffff',
+  receptor: '#ffd43b', especial: '#4dabf7', grande: '#17191c',
+};
+const rolDe = (j) => EQUIPOS[E.equipos[j.equipo].id]?.pos[j.pos]?.rol ?? 'linea';
+const ROL_ES = {
+  linea: 'Línea', bloqueador: 'Bloqueador', blitzer: 'Blitzer', lanzador: 'Lanzador',
+  receptor: 'Receptor', especial: 'Especialista', grande: 'Jugador grande',
+};
+const POSTURA_ES = { de_pie: 'De pie', distraido: 'Distraído', tumbado: 'Tumbado', aturdido: 'Aturdido' };
+const SITUACION_ES = { reserva: 'En reservas', campo: 'En el campo', ko: 'KO', lesionado: 'Lesionado', expulsado: 'Expulsado' };
+
+/** El balón, con forma de balón (óvalo con costura y cordones). */
+const BALON_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true">
+  <ellipse cx="12" cy="12" rx="9.2" ry="5.6" transform="rotate(-38 12 12)" fill="#8a5a2b" stroke="#53351a" stroke-width="1.3"/>
+  <line x1="7.6" y1="15.4" x2="16.4" y2="8.6" stroke="#f0e6d2" stroke-width="1.2"/>
+  <line x1="10" y1="10.6" x2="12" y2="13.2" stroke="#f0e6d2" stroke-width="1.1"/>
+  <line x1="11.6" y1="9.4" x2="13.6" y2="12" stroke="#f0e6d2" stroke-width="1.1"/>
+  <line x1="13.2" y1="8.2" x2="15.2" y2="10.8" stroke="#f0e6d2" stroke-width="1.1"/>
+</svg>`;
 const statLinea = (j) =>
   `MV ${j.perfil.mv} · FU ${j.perfil.fu} · AG ${j.perfil.ag}+ · PS ${j.perfil.ps}+ · AR ${j.perfil.ar}+`;
 const habilidades = (j) => j.hab.map((h) => HABILIDADES_ES[h] ?? h).join(', ') || '—';
@@ -559,10 +582,10 @@ function renderPitch() {
         const [c, t] = colorEq(j.equipo);
         const k = ['tk', j.postura !== 'de_pie' ? j.postura : '', j.grande ? 'big' : '',
           j.activado && E.fase === 'turno' ? 'act' : '', ui.sel === j.id ? 'sel' : ''].filter(Boolean).join(' ');
-        const balon = portador === j.id ? '<span class="bc"></span>' : '';
-        inner = `<div class="${k}" style="--c:${c};--t:${t}"><span>${esc(FICHA_ES[j.pos] ?? '?')}</span>${balon}</div>`;
+        const balon = portador === j.id ? `<span class="bc">${BALON_SVG}</span>` : '';
+        inner = `<div class="${k}" style="--c:${c};--t:${t};--anillo:${ANILLO[rolDe(j)]}"><span>${esc(FICHA_ES[j.pos] ?? '?')}</span>${balon}</div>`;
       } else if (b && !portador && b.x === x && b.y === y) {
-        inner = '<div class="ball"></div>';
+        inner = `<div class="ball">${BALON_SVG}</div>`;
       }
       html += `<div class="${cls.join(' ')}" data-x="${x}" data-y="${y}">${inner}</div>`;
     }
@@ -571,6 +594,26 @@ function renderPitch() {
 }
 
 const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio'];
+
+/** La ficha del jugador seleccionado: quién es, cómo está y qué sabe hacer. */
+function fichaJugador(j) {
+  const [c, t] = colorEq(j.equipo);
+  const estados = [];
+  if (j.situacion !== 'campo') estados.push([SITUACION_ES[j.situacion], 'mal']);
+  else if (j.postura !== 'de_pie') estados.push([POSTURA_ES[j.postura], 'mal']);
+  else estados.push(['De pie', 'bien']);
+  if (E.balon?.portador === j.id) estados.push(['🏈 lleva el balón', 'bien']);
+  if (j.activado && E.fase === 'turno' && j.equipo === E.activo) estados.push(['ya ha actuado', 'mal']);
+  if (j.sinApoyos) estados.push(['sin apoyos (Piquete de ojos)', 'mal']);
+  return `<div class="carta">
+    <div class="mini"><div class="tk ${j.grande ? 'big' : ''}" style="--c:${c};--t:${t};--anillo:${ANILLO[rolDe(j)]}"><span>${esc(FICHA_ES[j.pos] ?? '?')}</span></div></div>
+    <div class="datos">
+      <span class="nom">${esc(POSICIONES_ES[j.pos] ?? j.pos)} #${j.dorsal} · ${esc(E.equipos[j.equipo].nombre)}</span>
+      <span class="skills">${ROL_ES[rolDe(j)]} · ${statLinea(j)}</span>
+      <span class="skills">${esc(habilidades(j))}</span>
+      <span>${estados.map(([txt, cls]) => `<span class="est ${cls}">${esc(txt)}</span>`).join(' · ')}</span>
+    </div></div>`;
+}
 
 function renderPanel() {
   const info = $('info'), chips = $('chips');
@@ -648,7 +691,8 @@ function renderPanel() {
       if (a) {
         const yo = jugador(E, a.jugador);
         const restante = yo.perfil.mv - a.mvGastado;
-        txt = `<b>${esc(etiqueta(yo))}</b> — ${a.accion} · MV ${Math.max(0, restante)}${a.rushUsados ? ` · rush ${a.rushUsados}/2` : ''}` +
+        const ACCION_ES = { move: 'Movimiento', blitz: 'Penetración', block: 'Placaje', pass: 'Pase', handoff: 'Entrega', foul: 'Falta', secure: 'Asegurar el balón' };
+        txt = `<b>${esc(etiqueta(yo))}</b> — ${ACCION_ES[a.accion] ?? a.accion} · MV ${Math.max(0, restante)}${a.rushUsados ? ` · rush ${a.rushUsados}/2` : ''}` +
           (ui.modo === 'pase_objetivo' ? ' · <b>toca la casilla del pase</b>' : '') +
           `<span class="skills">${esc(habilidades(yo))}</span>`;
         if (a.accion === 'pass' && E.balon?.portador === yo.id) ch += chip('lanzar', 'Lanzar', 'class="hot"');
@@ -658,7 +702,7 @@ function renderPanel() {
         }
         ch += chip('fin_activacion', 'Terminar activación');
       } else if (sel && ui.modo === 'elegir_accion') {
-        txt = `<b>${esc(etiqueta(sel))}</b> · ${statLinea(sel)}<span class="skills">${esc(habilidades(sel))}</span>`;
+        txt = fichaJugador(sel);
         const puede = (k) => !E.usadas[k];
         ch = chipV('accion', 'move', 'Mover', 'class="hot"') +
           (puede('blitz') ? chipV('accion', 'blitz', 'Blitz') : '') +
@@ -668,7 +712,7 @@ function renderPanel() {
           (puede('foul') ? chipV('accion', 'foul', 'Falta') : '') +
           (puede('secure') && E.balon && !E.balon.portador ? chipV('accion', 'secure', 'Asegurar') : '');
       } else if (sel) {
-        txt = `<b>${esc(etiqueta(sel))}</b> · ${statLinea(sel)}<span class="skills">${esc(habilidades(sel))}</span>`;
+        txt = fichaJugador(sel);
         ch = chip('fin_turno', 'Fin de turno');
       } else if (ui.modo === 'blitz_objetivo') {
         txt = '<b>Penetración</b>: toca al rival objetivo.';
@@ -692,7 +736,7 @@ function bench(eq) {
   return reservas.slice(0, 16).map((j) => {
     const [c, t] = colorEq(eq);
     return `<button data-bench="${j.id}" class="${ui.sel === j.id ? 'sel' : ''}" style="padding:.3rem .45rem">
-      <span class="tk" style="--c:${c};--t:${t};width:24px;height:24px;font-size:.72rem;display:grid;place-items:center">${esc(FICHA_ES[j.pos])}</span></button>`;
+      <span class="tk" style="--c:${c};--t:${t};--anillo:${ANILLO[rolDe(j)]};width:24px;height:24px;font-size:.72rem;display:grid;place-items:center">${esc(FICHA_ES[j.pos])}</span></button>`;
   }).join('');
 }
 
