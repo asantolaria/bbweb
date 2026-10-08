@@ -11,10 +11,18 @@ sin cuentas). Fase 2 prevista: una IA para jugar solo.
 
 ## Jugar
 
+**En producción: https://bbweb-umber.vercel.app** — ábrelo en el móvil y usa
+«Añadir a pantalla de inicio» para tenerlo como app (funciona sin conexión).
+
+En local:
+
 ```bash
 npm run serve        # python3 -m http.server 8000
 # móvil en la misma red → http://<ip-del-pc>:8000
 ```
+
+Publicar cambios: `vercel deploy --prod` (proyecto `bbweb` de la cuenta personal de
+Vercel; el despliegue automático por push se activa conectando GitHub en el dashboard).
 
 La app usa módulos ES nativos: hace falta servirla (no funciona con doble clic en el
 archivo). No hay build ni dependencias: `node --test` para los tests y listo.
