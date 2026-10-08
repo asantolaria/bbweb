@@ -295,3 +295,26 @@ test('Luchador repite un Ambos derribados en Placaje declarado, no en Penetraci�
   assert.ok(e.registro.some((x) => x.tipo === 'luchador'));
   assert.equal(r.resultado, 'pow');
 });
+
+test('la Penetración declara objetivo, cuesta 1 MV y deja seguir moviéndose', async () => {
+  const { activar: act, paso: p2 } = await import('../src/engine/movimiento.js');
+  const { placarEnPenetracion } = await import('../src/engine/placaje.js');
+  const e = montar('human', 'chaos_chosen');
+  const blitzer = colocar(e, 'hu2', 7, 16);
+  colocar(e, 'ch5', 7, 13);
+  // Declara la Penetración contra el beastman, aún a 3 casillas.
+  act(e, 'hu2', 'blitz', { azar: dadoFijo(6), objetivo: 'ch5' });
+  assert.equal(e.usadas.blitz, true);
+  p2(e, 7, 15, { azar: dadoFijo(6) });
+  p2(e, 7, 14, { azar: dadoFijo(6) });
+  assert.equal(e.activacion.mvGastado, 2);
+  // Placa (1 dado, 3v3): 6 → POW. Empuje por defecto, sin impulso. AR 9: 2,2 no rompe.
+  const r = placarEnPenetracion(e, { azar: dadoGuionizado(6, 2, 2), opciones: { impulso: () => false } });
+  assert.equal(r.resultado, 'pow');
+  assert.equal(e.activacion.mvGastado, 3, 'el placaje costó 1 MV');
+  // Y puede seguir moviendo con el MV restante (blitzer MV 7).
+  p2(e, 6, 15, { azar: dadoFijo(6) });
+  assert.deepEqual([blitzer.x, blitzer.y], [6, 15]);
+  // El segundo placaje de la misma Penetración está prohibido.
+  assert.throws(() => placarEnPenetracion(e, { azar: dadoFijo(6) }), /ya se hizo/);
+});

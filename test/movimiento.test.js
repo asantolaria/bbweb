@@ -207,7 +207,8 @@ test('saltar sobre un tumbado: 2 MV, cuenta el lado peor y con 1 natural cae en 
 test('Estúpido: con 1 queda Distraído, pierde la activación y la Penetración se gasta', () => {
   const e = partido();
   colocar(e, 'hu1', 7, 13);            // Ogro
-  const r = activar(e, 'hu1', 'blitz', { azar: dadoGuionizado(1) });
+  colocar(e, 'li2', 7, 11);            // el objetivo declarado de la Penetración
+  const r = activar(e, 'hu1', 'blitz', { azar: dadoGuionizado(1), objetivo: 'li2' });
   assert.equal(r.rasgo, 'bone_head');
   assert.equal(jugador(e, 'hu1').postura, 'distraido');
   assert.equal(e.activacion, null);

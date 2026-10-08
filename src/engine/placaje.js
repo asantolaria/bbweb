@@ -195,6 +195,39 @@ function adyacentesLibres(estado, j) {
 }
 
 /**
+ * El placaje de una Penetración: contra el objetivo declarado al activarse, cuesta
+ * 1 de MV (con Forzar la marcha si hace falta) y después se puede seguir moviendo.
+ */
+export function placarEnPenetracion(estado, { azar, opciones = {} } = {}) {
+  const a = estado.activacion;
+  if (!a || a.accion !== 'blitz') throw new Error('Hace falta una Penetración en curso.');
+  if (a.placajeHecho) throw new Error('El placaje de esta Penetración ya se hizo.');
+  const A = jugador(estado, a.jugador);
+  const O = jugador(estado, a.objetivoBlitz);
+  if (!sonAdyacentes(A.x, A.y, O.x, O.y)) throw new Error('El objetivo no está adyacente.');
+
+  // El placaje cuesta 1 de MV; si no queda, Forzar la marcha (2+, −1 con Ventisca).
+  if (a.mvGastado < A.perfil.mv) a.mvGastado++;
+  else {
+    if (a.rushUsados >= 2) throw new Error('Sin movimiento para el placaje.');
+    a.rushUsados++;
+    const mods = estado.clima === 'blizzard' ? [{ v: -1, porque: 'Ventisca' }] : [];
+    const c = tirar(6, { azar, motivo: `Forzar la marcha para placar (${A.id})` });
+    anotar(estado, 'rush', { jugador: A.id, d6: c.valor, necesario: estado.clima === 'blizzard' ? 3 : 2 });
+    const necesario = estado.clima === 'blizzard' ? 3 : 2;
+    if (c.valor < necesario) {
+      const caida = resolverSuelo(estado, A, { forma: 'caida', azar });
+      if (caida.final !== 'de_pie') {
+        estado.turnover = { causa: 'caida_rush' };
+        return { resultado: 'caida', caida };
+      }
+    }
+  }
+  a.placajeHecho = true;
+  return placar(estado, A.id, O.id, { azar, blitz: true, opciones });
+}
+
+/**
  * Un Placaje completo contra un rival de pie al que se marca.
  * `blitz`: forma parte de una Penetración (Cuernos e Imparable aplican; Luchador y
  * Apartar no).

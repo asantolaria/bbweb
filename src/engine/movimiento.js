@@ -23,7 +23,7 @@ export const MAX_RUSH = 2;
  * Si el rasgo falla, la acción CUENTA como declarada igualmente (nadie más puede hacer
  * la Penetración ese turno aunque el Troll se quede mirando las nubes).
  */
-export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = null } = {}) {
+export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = null, objetivo = null } = {}) {
   const j = jugador(estado, jugadorId);
   if (estado.turnover) throw new Error('El turno ha terminado.');
   if (estado.activacion) throw new Error(`Ya hay una activación en curso (${estado.activacion.jugador}).`);
@@ -55,11 +55,18 @@ export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = n
   if (j.postura === 'distraido') j.postura = 'de_pie';
   j.sinApoyos = false;
 
+  // La Penetración nombra a su objetivo al declararse.
+  if (accion === 'blitz') {
+    if (!objetivo) throw new Error('La Penetración declara su objetivo al activarse.');
+    const O = jugador(estado, objetivo);
+    if (O.equipo === j.equipo || O.situacion !== 'campo') throw new Error('Objetivo inválido.');
+  }
+
   estado.activacion = {
-    jugador: jugadorId, accion,
-    mvGastado: 0, rushUsados: 0, esquivarUsado: false, terminada: false,
+    jugador: jugadorId, accion, objetivoBlitz: objetivo,
+    mvGastado: 0, rushUsados: 0, esquivarUsado: false, placajeHecho: false, terminada: false,
   };
-  anotar(estado, 'activacion', { jugador: jugadorId, accion });
+  anotar(estado, 'activacion', { jugador: jugadorId, accion, objetivo });
 
   const negatraits = resolverRasgosNegativos(estado, j, accion, { azar, companeroObjetivo });
   if (negatraits?.terminaActivacion) terminarActivacion(estado);
