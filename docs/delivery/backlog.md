@@ -19,6 +19,21 @@ los mueven los entrenadores a mano.
 modificadores de zonas de placaje. Es el siguiente candidato natural: los modificadores
 son calculables desde el estado, a diferencia de las habilidades.
 
+## Aplazado del motor (con conocimiento de causa)
+
+- **Retrasar el juego (Stalling / «el público actúa»)**: exige detectar «puede anotar sin
+  tirar ningún dado», que es un análisis de caminos. Pendiente.
+- **¡A la carga! (evento de patada 10)**: el motor tira el evento y deja `pendiente`,
+  pero las activaciones gratuitas del pateador (con su Blitz, Lanzar compañero y Chutar
+  compañero) aún no están cableadas.
+- **Prórroga y penaltis**: solo hace falta para eliminatorias.
+- **Armas secretas**: ningún equipo de los 9 iniciales lleva una.
+- **Perseguir (Shadowing)** del Camaleón: movimiento reactivo del rival; pendiente.
+- **Atento al balón / Patada alta con movimiento**: el evento 5 coloca al jugador bajo el
+  balón, pero el movimiento de hasta 3 casillas tras el desvío (On the Ball) no está.
+- **Acciones aún no implementadas**: Pase, Entrega, Falta, Asegurar el balón y Lanzar
+  compañero son los siguientes módulos del motor.
+
 ## Decidido no hacer
 
 **Juego en red.** La partida vive en el `localStorage` del navegador. Dos entrenadores,

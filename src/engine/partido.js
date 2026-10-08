@@ -26,6 +26,8 @@ export function crearPartido(local, visitante, { clima = 'perfect_conditions' } 
     activacion: null,
     usadas: {},        // acciones limitadas a 1 por turno ya declaradas
     turnover: null,
+    efectosDrive: [],  // penalizaciones que expiran al final de la entrada
+    touchdownPendiente: null,
     registro: [],
   };
   [local, visitante].forEach((T, i) => {
