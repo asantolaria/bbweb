@@ -13,11 +13,11 @@ import { ROSTERS_1000K } from '../data/rosters-iniciales.js';
 import { EQUIPOS_ES, POSICIONES_ES, FICHA_ES, HABILIDADES_ES } from '../data/nombres.es.js';
 import { FORMACIONES, asignarFormacion } from '../data/formaciones.js';
 import { crearEquipo } from '../engine/equipo.js';
-import { crearPartido, jugador, enCasilla, tieneZonaDefensa, posicionBalon } from '../engine/partido.js';
+import { crearPartido, jugador, enCasilla, tieneZonaDefensa, posicionBalon, marcadoresDe } from '../engine/partido.js';
 import { ANCHO, ALTO, filaLos, sonAdyacentes } from '../engine/tablero.js';
 import { activar, paso, saltar, levantarse, terminarAccion } from '../engine/movimiento.js';
-import { placar, placarEnPenetracion } from '../engine/placaje.js';
-import { pase, entrega } from '../engine/pase.js';
+import { placar, placarEnPenetracion, fuerzasPlacaje, apoyos } from '../engine/placaje.js';
+import { pase, entrega, alcance } from '../engine/pase.js';
 import { falta } from '../engine/falta.js';
 import { lanzarCompanero } from '../engine/lanzar.js';
 import { apunalar, vomitar } from '../engine/especiales.js';
@@ -37,6 +37,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&
 let E = null;                                    // estado del partido (motor)
 let ui = {
   sel: null, modo: null, hoja: null, decision: null, ttmCompanero: null,
+  preview: null,        // vista previa pendiente de confirmar (placaje, pase, patada)
+  resultado: null,      // tarjetas de resultado de la última acción
+  resultadoIdx: 0,
   inicio: { a: 'human', b: 'black_orc' },        // selección de la pantalla de inicio
   decisorVisto: null,                            // a quién se le mostró ya el «te toca»
   eventoInfo: null,                              // resumen del último evento de patada
@@ -52,6 +55,7 @@ function deshacer() {
   if (!undoStack.length) return toast('Nada que deshacer.');
   E = JSON.parse(undoStack.pop());
   ui.sel = null; ui.modo = null; ui.hoja = null; ui.decision = null;
+  ui.preview = null; ui.resultado = null; ui.resultadoIdx = 0; ui.ttmCompanero = null;
   ui.decisorVisto = quienDecide();               // deshacer no es un cambio de manos
   guardar(); render();
 }
@@ -87,10 +91,12 @@ async function ejecutar(fn) {
         throw new NecesitaDecision(pregunta);
       };
       try {
+        const antes = JSON.parse(snap).registro.length;
         fn(azar, decidir);
         undoStack.push(snap);
         if (undoStack.length > 40) undoStack.shift();
         if (E.fase === 'turno') comprobarTouchdown(E);
+        prepararResultados(E.registro.slice(antes));
         guardar(); render();
         return true;
       } catch (err) {
@@ -291,6 +297,99 @@ function lineaRegistro(ev) {
   return (T[ev.tipo] ?? (() => `${ev.tipo}${j ? ' ' + j : ''}${c}`))();
 }
 
+/* ---------- tarjetas de resultado en grande ---------- */
+
+const ICONO_EVENTO = {
+  pow: '💥', stumble: '〰️', push: '➡️', both_down: '🤼', player_down: '💀',
+};
+
+/** Convierte los eventos de una acción en tarjetas grandes; decide si merecen modal. */
+function prepararResultados(eventos) {
+  const tarjetas = [];
+  const nombre = (id) => (E.jugadores[id] ? etiqueta(E.jugadores[id]) : id);
+  const cheq = (c) => ({
+    dados: [c.valor], exito: c.exito,
+    mods: (c.mods ?? []).map((m) => `${m.v > 0 ? '+' : ''}${m.v} ${m.porque}`),
+    detalle: `Necesitaba ${c.necesario}+ y ha salido ${c.valor}${c.suma ? ` (${c.suma > 0 ? '+' : ''}${c.suma})` : ''}`,
+  });
+  for (const ev of eventos) {
+    switch (ev.tipo) {
+      case 'placaje':
+        tarjetas.push({
+          icono: '🎲', titulo: `${nombre(ev.atacante)} placa a ${nombre(ev.objetivo)}`,
+          dadosTexto: ev.dados.map((d) => CARA_ES[d]),
+          detalle: `FU ${ev.fuerzas.atacante} contra ${ev.fuerzas.objetivo} · ${ev.dados.length} dado${ev.dados.length > 1 ? 's' : ''}${ev.elige ? ` (elige el entrenador ${ev.elige === 'atacante' ? 'atacante' : 'defensor'})` : ''}`,
+          mods: [...ev.fuerzas.modsA, ...ev.fuerzas.modsO].map((m) => `+${m.v} ${m.porque}`),
+        });
+        break;
+      case 'placaje_resultado':
+        tarjetas.push({ icono: ICONO_EVENTO[ev.resultado] ?? '🎲', titulo: CARA_ES[ev.resultado], detalle: '' });
+        break;
+      case 'esquivar': case 'saltar': case 'recoger': case 'atrapar': case 'intercepcion':
+      case 'pase': case 'lanzamiento': case 'aterrizaje': case 'asegurar': {
+        const T = {
+          esquivar: ['🩰', 'Esquiva'], saltar: ['🦘', 'Salto'], recoger: ['🖐️', 'Recoge el balón'],
+          atrapar: ['🙌', 'Atrapa'], intercepcion: ['✋', 'Intercepción'],
+          pase: ['🏈', `Pase ${({ quick: 'rápido', short: 'corto', long: 'largo', bomb: 'bomba' })[ev.alcance] ?? ''}`], lanzamiento: ['🏋️', 'Lanza al compañero'],
+          aterrizaje: ['🛬', 'Aterrizaje'], asegurar: ['🧤', 'Asegura el balón'],
+        }[ev.tipo];
+        tarjetas.push({ icono: T[0], titulo: `${T[1]} — ${nombre(ev.jugador)}`, ...cheq(ev.chequeo) });
+        break;
+      }
+      case 'armadura':
+        tarjetas.push({
+          icono: ev.tirada.rota ? '🛡️💔' : '🛡️', titulo: `Armadura de ${nombre(ev.jugador)}`,
+          dados: ev.tirada.dados,
+          detalle: `${ev.tirada.total} contra ${ev.tirada.ar}+ → ${ev.tirada.rota ? '¡ROTA!' : 'aguanta'}${ev.tirada.porGarras ? ' (Garras)' : ''}`,
+          mods: (ev.tirada.mods ?? []).map((m) => `${m.v > 0 ? '+' : ''}${m.v} ${m.porque}`),
+        });
+        break;
+      case 'heridas': {
+        const R = { stunned: ['😵', 'Aturdido'], ko: ['🚑', '¡KO!'], casualty: ['☠️', '¡LESIÓN!'] };
+        const [ic, tx] = R[ev.tirada.resultado] ?? ['❓', ev.tirada.resultado];
+        tarjetas.push({ icono: ic, titulo: `${tx} — ${nombre(ev.jugador)}`, dados: ev.tirada.dados, detalle: ev.tirada.efecto ?? '' });
+        break;
+      }
+      case 'lesion':
+        tarjetas.push({ icono: '🏥', titulo: `${nombre(ev.jugador)}: ${LESION_ES[ev.tirada.resultado] ?? ev.tirada.resultado}`, dados: [ev.tirada.valor], detalle: 'Tabla de lesiones (D16)' });
+        break;
+      case 'regeneracion':
+        tarjetas.push({ icono: '🧟', titulo: `Regeneración de ${nombre(ev.jugador)}`, dados: [ev.d6], exito: ev.regenera, detalle: ev.regenera ? 'Se recompone y vuelve a Reservas' : 'Esta vez no' });
+        break;
+      case 'devorado':
+        tarjetas.push({ icono: '🍽️', titulo: `¡${nombre(ev.jugador)} DEVORADO!`, detalle: 'Sin apotecario ni Regeneración que valgan.' });
+        break;
+      case 'apunalar':
+        tarjetas.push({ icono: '🗡️', titulo: `${nombre(ev.atacante)} apuñala a ${nombre(ev.victima)}`, detalle: 'Armadura sin modificadores' });
+        break;
+      case 'vomito':
+        tarjetas.push({ icono: '🤮', titulo: ev.d6 === 1 ? '¡Se vomita encima!' : `Vomita sobre ${nombre(ev.aQuien)}`, dados: [ev.d6], detalle: '' });
+        break;
+      case 'touchdown':
+        tarjetas.push({ icono: '🏆', titulo: `¡TOUCHDOWN de ${ev.equipo}!`, detalle: `Marcador ${ev.marcador.join(' – ')}` });
+        break;
+      case 'rush':
+        if (ev.chequeo) tarjetas.push({ icono: '💨', titulo: `Fuerza la marcha — ${nombre(ev.jugador)}`, ...cheq(ev.chequeo) });
+        break;
+      case 'patada':
+        tarjetas.push({ icono: '🦵', titulo: 'Patada', dados: [ev.d6, ev.d8], detalle: `Se desvía ${ev.d6} casillas` });
+        break;
+      case 'evento_patada':
+        tarjetas.push({ icono: '📯', titulo: EVENTO_ES[ev.evento] ?? ev.evento, dados: ev.dados, detalle: '' });
+        break;
+    }
+  }
+  // Solo abre el modal si pasó algo con chicha (un paseo con una esquiva limpia, no).
+  const conChicha = eventos.some((e) =>
+    ['placaje_resultado', 'armadura', 'heridas', 'pase', 'intercepcion', 'lanzamiento',
+      'touchdown', 'asegurar', 'apunalar', 'vomito', 'devorado', 'entrega'].includes(e.tipo));
+  if (tarjetas.length && conChicha) {
+    ui.resultado = tarjetas;
+    ui.resultadoIdx = 0;
+    ui.hoja = 'resultado';
+  }
+}
+
 let tt;
 function toast(m) {
   const t = $('toast');
@@ -330,6 +429,20 @@ function aplicarFormacion(equipo, clave) {
 async function tapCell(x, y) {
   if (!E) return;
 
+  // Con una vista previa de pase o patada abierta, tocar otra casilla la recoloca.
+  if (ui.preview?.tipo === 'pase') {
+    const yo = jugador(E, E.activacion.jugador);
+    const t = alcance(yo.x, yo.y, x, y);
+    if (t) { ui.preview = { tipo: 'pase', x, y, alcance: t }; render(); }
+    else toast('Fuera de alcance.');
+    return;
+  }
+  if (ui.preview?.tipo === 'patada') {
+    ui.preview = { tipo: 'patada', x, y };
+    render(); return;
+  }
+  if (ui.preview?.tipo === 'placar') { ui.preview = null; render(); return; }
+
   // Una decisión de tipo casilla se resuelve tocando el tablero.
   if (ui.decision) {
     const p = ui.decision.pregunta;
@@ -356,8 +469,8 @@ async function tapCell(x, y) {
   }
 
   if (E.fase === 'patada') {
-    if (await ejecutar((azar) => patada(E, x, y, { azar }))) { prepararEventoInfo(); render(); }
-    return;
+    ui.preview = { tipo: 'patada', x, y };
+    render(); return;
   }
 
   if (E.pendiente) {
@@ -397,17 +510,18 @@ async function tapCell(x, y) {
   const yo = jugador(E, a.jugador);
 
   if (ui.modo === 'pase_objetivo') {
-    ui.modo = null;
-    await ejecutar((azar, decidir) => pase(E, x, y, { azar, opciones: opcionesMotor(decidir) }));
-    return;
+    const tipo = alcance(yo.x, yo.y, x, y);
+    if (!tipo) { toast('Fuera de alcance.'); return; }
+    ui.preview = { tipo: 'pase', x, y, alcance: tipo };
+    render(); return;
   }
   if (j && a.accion === 'blitz' && j.id === a.objetivoBlitz && sonAdyacentes(yo.x, yo.y, j.x, j.y) && !a.placajeHecho) {
-    await ejecutar((azar, decidir) => placarEnPenetracion(E, { azar, opciones: opcionesMotor(decidir) }));
-    return;
+    ui.preview = { tipo: 'placar', atacante: yo.id, objetivo: j.id, blitz: true };
+    render(); return;
   }
   if (j && a.accion === 'block' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
-    await ejecutar((azar, decidir) => { placar(E, yo.id, j.id, { azar, opciones: opcionesMotor(decidir) }); terminarAccion(E); });
-    return;
+    ui.preview = { tipo: 'placar', atacante: yo.id, objetivo: j.id, blitz: false };
+    render(); return;
   }
   if (j && a.accion === 'foul' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
     await ejecutar((azar, decidir) => falta(E, j.id, { azar, opciones: opcionesMotor(decidir) }));
@@ -496,20 +610,44 @@ async function act(el) {
     }
     case 'confirmar': ui.sel = null; await ejecutar(() => confirmarDespliegue(E)); return;
     case 'centro':
-      if (await ejecutar((azar) => patada(E, 7, E.kicker === 0 ? 6 : 19, { azar }))) { prepararEventoInfo(); render(); }
-      return;
+      ui.preview = { tipo: 'patada', x: 7, y: E.kicker === 0 ? 6 : 19 };
+      render(); return;
     case 'evento_fin': ui.sel = null; await ejecutar((azar) => terminarEvento(E, { azar })); return;
     case 'accion': {
       const sel = ui.sel;
-      ui.modo = null;
+      ui.modo = null; ui.preview = null;
       if (d.v === 'blitz') { ui.modo = 'blitz_objetivo'; render(); return; }
       await ejecutar((azar) => activar(E, sel, d.v, { azar }));
       return;
     }
-    case 'lanzar': ui.modo = 'pase_objetivo'; render(); return;
-    case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; await ejecutar(() => terminarAccion(E)); return;
+    case 'lanzar': ui.modo = 'pase_objetivo'; ui.preview = null; render(); return;
+    case 'preview_no': ui.preview = null; render(); return;
+    case 'placar_go': {
+      const p = ui.preview; ui.preview = null;
+      if (!p) return;
+      if (p.blitz) await ejecutar((azar, decidir) => placarEnPenetracion(E, { azar, opciones: opcionesMotor(decidir) }));
+      else await ejecutar((azar, decidir) => { placar(E, p.atacante, p.objetivo, { azar, opciones: opcionesMotor(decidir) }); terminarAccion(E); });
+      return;
+    }
+    case 'pase_go': {
+      const p = ui.preview; ui.preview = null; ui.modo = null;
+      if (!p) return;
+      await ejecutar((azar, decidir) => pase(E, p.x, p.y, { azar, opciones: opcionesMotor(decidir) }));
+      return;
+    }
+    case 'patada_go': {
+      const p = ui.preview; ui.preview = null;
+      if (!p) return;
+      if (await ejecutar((azar) => patada(E, p.x, p.y, { azar }))) { prepararEventoInfo(); render(); }
+      return;
+    }
+    case 'res_sig':
+      ui.resultadoIdx++;
+      if (ui.resultadoIdx >= (ui.resultado?.length ?? 0)) { ui.hoja = null; ui.resultado = null; ui.resultadoIdx = 0; }
+      render(); return;
+    case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; ui.preview = null; await ejecutar(() => terminarAccion(E)); return;
     case 'fin_turno':
-      ui.sel = null; ui.modo = null;
+      ui.sel = null; ui.modo = null; ui.preview = null;
       await ejecutar((azar) => terminarTurno(E, { azar }));
       return;
     case 'deshacer': deshacer(); return;
@@ -612,10 +750,32 @@ function renderPitch() {
   const p = $('pitch');
   p.style.setProperty('--cell', `${cell}px`);
 
-  // Casillas destacadas: una decisión de empuje, o las zonas de placaje rivales.
+  // Casillas destacadas: una decisión de empuje, la casilla elegida en una vista
+  // previa, o las zonas de placaje rivales.
   const destacadas = new Set();
   if (ui.decision?.pregunta.tipo === 'casilla') {
     for (const c of ui.decision.pregunta.casillas) destacadas.add(`${c.x},${c.y}`);
+  }
+  if (ui.preview && 'x' in (ui.preview ?? {})) destacadas.add(`${ui.preview.x},${ui.preview.y}`);
+
+  // Apoyos de la vista previa del placaje: verdes los del atacante, naranjas los del
+  // defensor (ver reglamento: compañero que marca al implicado sin nadie más encima).
+  const marcaApoyo = new Map();
+  if (ui.preview?.tipo === 'placar') {
+    const A = jugador(E, ui.preview.atacante), O = jugador(E, ui.preview.objetivo);
+    const ap = apoyos(E, A, O);
+    for (const c of ap.ofensivos) marcaApoyo.set(c.id, 'apoyo');
+    for (const c of ap.defensivos) marcaApoyo.set(c.id, 'apoyo-def');
+  }
+
+  // Mapa de alcances del pase: verde rápido, verdoso corto, naranja largo, rojo bomba.
+  const alcances = new Map();
+  if (ui.modo === 'pase_objetivo' && E.activacion) {
+    const yo = jugador(E, E.activacion.jugador);
+    for (let yy = 0; yy < ALTO; yy++) for (let xx = 0; xx < ANCHO; xx++) {
+      const t = alcance(yo.x, yo.y, xx, yy);
+      if (t && !(xx === yo.x && yy === yo.y)) alcances.set(`${xx},${yy}`, { quick: 'al-q', short: 'al-s', long: 'al-l', bomb: 'al-b' }[t]);
+    }
   }
   const marca = new Set();
   const sel = ui.sel && E.jugadores[ui.sel];
@@ -640,13 +800,17 @@ function renderPitch() {
       if (y === 13) cls.push('los');
       if (x === 4 || x === ANCHO - 4) cls.push('wz');
       if (destacadas.has(`${x},${y}`)) cls.push('ok');
+      else if (alcances.has(`${x},${y}`)) cls.push(alcances.get(`${x},${y}`));
       else if (marca.has(`${x},${y}`)) cls.push('tz');
       const j = enCasilla(E, x, y);
       let inner = '';
       if (j) {
         const [c, t] = colorEq(j.equipo);
         const k = ['tk', j.postura !== 'de_pie' ? j.postura : '', j.grande ? 'big' : '',
-          j.activado && E.fase === 'turno' ? 'act' : '', ui.sel === j.id ? 'sel' : ''].filter(Boolean).join(' ');
+          j.activado && E.fase === 'turno' ? 'act' : '', ui.sel === j.id ? 'sel' : '',
+          marcaApoyo.get(j.id) ?? '',
+          ui.preview?.tipo === 'placar' && (j.id === ui.preview.atacante || j.id === ui.preview.objetivo) ? 'sel' : '',
+        ].filter(Boolean).join(' ');
         const balon = portador === j.id ? `<span class="bc">${BALON_SVG}</span>` : '';
         inner = `<div class="${k}" style="--c:${c};--t:${t};--anillo:${ANILLO[rolDe(j)]}"><span>${esc(FICHA_ES[j.pos] ?? '?')}</span>${balon}</div>`;
       } else if (b && !portador && b.x === x && b.y === y) {
@@ -658,7 +822,7 @@ function renderPitch() {
   p.innerHTML = html;
 }
 
-const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario'];
+const MODALES_DE_FASE = ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario', 'resultado'];
 
 /** La ficha del jugador seleccionado: quién es, cómo está y qué sabe hacer. */
 function fichaJugador(j) {
@@ -688,6 +852,41 @@ function renderPanel() {
   let txt = '', ch = '';
   const chip = (act, label, extra = '') => `<button data-act="${act}" ${extra}>${label}</button>`;
   const chipV = (act, v, label, extra = '') => `<button data-act="${act}" data-v="${v}" ${extra}>${label}</button>`;
+
+  // Una vista previa pendiente de confirmar manda sobre el panel normal.
+  if (ui.preview?.tipo === 'placar') {
+    const A = jugador(E, ui.preview.atacante), O = jugador(E, ui.preview.objetivo);
+    const f = fuerzasPlacaje(E, A, O, { blitz: ui.preview.blitz });
+    const quien = f.elige === null ? 'un dado'
+      : `${f.dados} dados — elige el entrenador ${f.elige === 'atacante' ? 'atacante' : 'DEFENSOR'}`;
+    const modsTxt = [...f.modsA.map((m) => `+${m.v} ${m.porque}`), ...f.modsO.map((m) => `+${m.v} ${m.porque} (rival)`)].join(' · ');
+    info.innerHTML = `<b>${esc(etiqueta(A))} va a placar a ${esc(etiqueta(O))}</b>
+      <span class="skills">FU ${f.fuA} contra ${f.fuO} → ${quien}</span>
+      <span class="skills">${esc(modsTxt || 'Sin apoyos: nadie más mete la nariz.')}</span>`;
+    chips.innerHTML = chip('placar_go', `🎲 Tirar ${f.dados} dado${f.dados > 1 ? 's' : ''}`, 'class="hot"') + chip('preview_no', 'Cancelar');
+    return;
+  }
+  if (ui.preview?.tipo === 'pase') {
+    const yo = jugador(E, E.activacion.jugador);
+    const ALC = { quick: ['Pase rápido', '+0'], short: ['Pase corto', '−1'], long: ['Pase largo', '−2'], bomb: ['Bomba larga', '−3'] };
+    const [nombreAlc, modAlc] = ALC[ui.preview.alcance];
+    const marcadores = marcadoresDe(E, yo.equipo, yo.x, yo.y).length;
+    const extra = [];
+    if (marcadores) extra.push(`−${marcadores} por marcador${marcadores > 1 ? 'es' : ''} al lanzador`);
+    if (E.clima === 'very_sunny') extra.push('−1 Muy soleado');
+    const receptor = enCasilla(E, ui.preview.x, ui.preview.y);
+    info.innerHTML = `<b>${nombreAlc}</b> (${modAlc}) de ${esc(etiqueta(yo))}` +
+      (receptor ? ` hacia ${esc(etiqueta(receptor))}` : ' a una casilla vacía') +
+      `<span class="skills">PS ${yo.perfil.ps}+ ${extra.length ? '· ' + esc(extra.join(' · ')) : ''}</span>`;
+    chips.innerHTML = chip('pase_go', '🎲 Lanzar', 'class="hot"') + chip('preview_no', 'Otra casilla');
+    return;
+  }
+  if (ui.preview?.tipo === 'patada') {
+    info.innerHTML = `<b>Patada a la columna ${ui.preview.x + 1}, fila ${ui.preview.y + 1}</b>
+      <span class="skills">El balón se desviará 1D6 casillas en una dirección al azar.</span>`;
+    chips.innerHTML = chip('patada_go', '🎲 Patear', 'class="hot"') + chip('preview_no', 'Otra casilla');
+    return;
+  }
 
   // Una decisión en curso manda sobre todo lo demás.
   if (ui.decision) {
@@ -834,7 +1033,7 @@ function renderHoja() {
   const wrap = $('wrap'), sheet = $('sheet');
   if (!ui.hoja) { wrap.hidden = true; return; }
   wrap.hidden = false;
-  wrap.classList.toggle('center', ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario'].includes(ui.hoja));
+  wrap.classList.toggle('center', ['previa', 'turno_de', 'evento_info', 'final', 'inicio', 'apotecario', 'resultado'].includes(ui.hoja));
   const head = (t, cerrable = true) =>
     `<div class="shead"><h2>${t}</h2>${cerrable ? '<button class="x" data-act="cerrar">✕</button>' : ''}</div>`;
 
@@ -886,6 +1085,22 @@ function renderHoja() {
       <p style="font-size:.9rem">${esc(ev.efecto)}</p>` +
       ev.lineas.map((l) => `<p style="font-size:.9rem;color:var(--muted)">${esc(l)}</p>`).join('') + `
       <div class="row"><button class="primary" data-act="visto">Continuar</button></div>`;
+    return;
+  }
+  if (ui.hoja === 'resultado') {
+    const t = ui.resultado?.[ui.resultadoIdx];
+    if (!t) { ui.hoja = null; wrap.hidden = true; return; }
+    const ultimo = ui.resultadoIdx === ui.resultado.length - 1;
+    sheet.innerHTML = head('Resultado', false) + `
+      <div class="res-icono">${t.icono}</div>
+      <div class="res-titulo">${esc(t.titulo)}</div>` +
+      (t.dadosTexto ? `<div class="res-dados">${t.dadosTexto.map((d) => `<div class="res-dado" style="font-size:.62rem;padding:2px;text-align:center">${esc(d)}</div>`).join('')}</div>` : '') +
+      (t.dados ? `<div class="res-dados">${t.dados.map((d) => `<div class="res-dado">${d}</div>`).join('')}</div>` : '') +
+      (t.exito !== undefined ? `<div class="res-exito ${t.exito ? 'si' : 'no'}">${t.exito ? '✅ ¡Éxito!' : '❌ Fallo'}</div>` : '') +
+      (t.detalle ? `<p class="res-mods">${esc(t.detalle)}</p>` : '') +
+      (t.mods?.length ? `<p class="res-mods">${esc(t.mods.join(' · '))}</p>` : '') + `
+      <div class="res-paso">${ui.resultadoIdx + 1} de ${ui.resultado.length}</div>
+      <div class="row"><button class="primary" data-act="res_sig">${ultimo ? 'Listo' : 'Siguiente →'}</button></div>`;
     return;
   }
   if (ui.hoja === 'apotecario') {

@@ -69,6 +69,25 @@ main{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align
 .c .ball{width:78%;height:78%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
 .bc svg,.ball svg{width:100%;height:100%;display:block}
 
+/* Apoyos del placaje: verde los que suman al atacante, naranja los del defensor */
+.tk.apoyo{box-shadow:0 0 0 3px #2f9e44,0 0 8px 2px rgba(47,158,68,.8)}
+.tk.apoyo-def{box-shadow:0 0 0 3px #e8890c,0 0 8px 2px rgba(232,137,12,.8)}
+.c.al-q::after{content:"";position:absolute;inset:1px;background:rgba(47,158,68,.4);border-radius:2px;pointer-events:none}
+.c.al-s::after{content:"";position:absolute;inset:1px;background:rgba(148,193,31,.38);border-radius:2px;pointer-events:none}
+.c.al-l::after{content:"";position:absolute;inset:1px;background:rgba(232,137,12,.38);border-radius:2px;pointer-events:none}
+.c.al-b::after{content:"";position:absolute;inset:1px;background:rgba(224,49,49,.4);border-radius:2px;pointer-events:none}
+
+/* Tarjeta grande de resultado de tirada */
+.res-icono{font-size:3rem;text-align:center;line-height:1.1;margin:.2rem 0}
+.res-titulo{font-size:1.25rem;font-weight:800;text-align:center}
+.res-exito{text-align:center;font-weight:800;font-size:1.05rem;margin:.3rem 0}
+.res-exito.si{color:var(--good)}
+.res-exito.no{color:var(--bad)}
+.res-dados{display:flex;gap:8px;justify-content:center;margin:.4rem 0}
+.res-dado{width:52px;height:52px;border-radius:12px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:800;font-size:1.6rem}
+.res-mods{font-size:.82rem;color:var(--muted);text-align:center}
+.res-paso{font-size:.75rem;color:var(--muted);text-align:center;margin-top:.4rem}
+
 /* Ficha del jugador en el panel */
 .carta{display:flex;gap:10px;align-items:flex-start}
 .carta .mini{flex:none;width:34px;height:34px;display:grid;place-items:center}
