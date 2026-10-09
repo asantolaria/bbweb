@@ -231,6 +231,13 @@ function resolverEventoPatada(estado, evento, { azar }) {
     case 'blitz_event': {
       const n = evento === 'high_kick' ? 1 : tirarD3({ azar, motivo: evento }).valor + 3;
       estado.pendiente = { tipo: evento, equipo: evento === 'solid_defence' || evento === 'blitz_event' ? estado.kicker : receptor(estado), restantes: n };
+      if (evento === 'blitz_event') {
+        // ¡A la carga!: el pateador activa jugadores ANTES del primer turno, con la
+        // maquinaria normal de activaciones. Rerolls de equipo permitidos (FAQ).
+        estado.activo = estado.kicker;
+        estado.usadas = {};
+        estado.turnover = null;
+      }
       anotar(estado, evento, { jugadores: n });
       return;
     }
@@ -272,6 +279,16 @@ export function terminarEvento(estado, { azar }) {
   if (estado.pendiente.tipo === 'solid_defence') {
     const p = validarDespliegue(estado, estado.pendiente.equipo);
     if (p.length) throw new Error(p.join(' '));
+  }
+  if (estado.pendiente.tipo === 'blitz_event') {
+    // La Carga fue gratis: los activados vuelven a estar frescos para su primer turno,
+    // las acciones de 1/turno se liberan y una caída que la cortó no arrastra turnover.
+    for (const j of Object.values(estado.jugadores)) {
+      if (j.equipo === estado.pendiente.equipo) j.activado = false;
+    }
+    estado.usadas = {};
+    estado.turnover = null;
+    estado.activacion = null;
   }
   estado.pendiente = null;
   caidaDelBalon(estado, { azar });

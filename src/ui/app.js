@@ -175,7 +175,8 @@ function opcionesMotor(decidir) {
 function quienDecide() {
   if (!E) return null;
   if (E.pendiente) return E.pendiente.equipo;
-  switch (E.fase) {
+  const enCarga = E.pendiente?.tipo === 'blitz_event';
+  switch (enCarga ? 'turno' : E.fase) {
     case 'eleccion_saque': return E.ganadorSorteo;
     case 'despliegue_kicker': return E.kicker;
     case 'despliegue_receiver': return 1 - E.kicker;
@@ -188,7 +189,7 @@ function quienDecide() {
 
 function tareaActual() {
   if (E.pendiente) {
-    const EV = { solid_defence: 'Recoloca a tus jugadores desmarcados', quick_snap: 'Mueve una casilla a tus desmarcados', high_kick: 'Coloca a un jugador bajo el balón', blitz_event: '¡A la carga!' };
+    const EV = { solid_defence: 'Recoloca a tus jugadores desmarcados', quick_snap: 'Mueve una casilla a tus desmarcados', high_kick: 'Coloca a un jugador bajo el balón', blitz_event: '¡A la carga!: activa gratis a tus desmarcados (Mover, 1 Blitz, 1 Lanzar comp.) antes de que caiga el balón' };
     return EV[E.pendiente.tipo] ?? '';
   }
   switch (E.fase) {
@@ -490,7 +491,7 @@ async function tapCell(x, y) {
     render(); return;
   }
 
-  if (E.pendiente) {
+  if (E.pendiente && E.pendiente.tipo !== 'blitz_event') {
     if (ui.sel) {
       const id = ui.sel; ui.sel = null;
       await ejecutar(() => moverEnEvento(E, id, x, y));
@@ -505,7 +506,8 @@ async function tapCell(x, y) {
     return;
   }
 
-  if (E.fase !== 'turno' || E.turnover) return;
+  const enCarga = E.pendiente?.tipo === 'blitz_event';
+  if (!(E.fase === 'turno' || enCarga) || E.turnover) return;
 
   const a = E.activacion;
   if (!a) {
@@ -920,7 +922,8 @@ function renderPanel() {
     return;
   }
 
-  switch (E.fase) {
+  const enCarga = E.pendiente?.tipo === 'blitz_event';
+  switch (enCarga ? 'turno' : E.fase) {
     case 'eleccion_saque':
       txt = `<b>${esc(E.equipos[E.ganadorSorteo].nombre)}</b> gana el sorteo (clima: ${CLIMA_ES[E.clima]}).`;
       ch = chipV('saque', 'patear', 'Patear', 'class="hot"') + chipV('saque', 'recibir', 'Recibir', 'class="hot"');
@@ -960,6 +963,11 @@ function renderPanel() {
       break;
     case 'turno': {
       const Eq = E.equipos[E.activo];
+      if (enCarga && E.turnover) {
+        txt = '<b>¡La Carga se detiene!</b> Alguien ha besado el césped.';
+        ch = chip('evento_fin', 'Que caiga el balón', 'class="warn"');
+        break;
+      }
       if (E.turnover) {
         const TO = {
           touchdown: '¡Touchdown!', pifia: 'Pifia', intercepcion: 'Intercepción',
@@ -994,6 +1002,14 @@ function renderPanel() {
       } else if (sel && ui.modo === 'elegir_accion') {
         txt = fichaJugador(sel);
         const puede = (k) => !E.usadas[k];
+        if (enCarga) {
+          txt += `<span class="skills">¡A la carga! (quedan ${E.pendiente.restantes})</span>`;
+          ch = chipV('accion', 'move', 'Mover', 'class="hot"') +
+            (puede('blitz') ? chipV('accion', 'blitz', 'Blitz') : '') +
+            (puede('ttm') && tiene(sel.hab, 'throw_team_mate') ? chipV('accion', 'ttm', 'Lanzar comp.') : '') +
+            chip('evento_fin', 'Terminar la Carga');
+          break;
+        }
         ch = chipV('accion', 'move', 'Mover', 'class="hot"') +
           (puede('blitz') ? chipV('accion', 'blitz', 'Blitz') : '') +
           chipV('accion', 'block', 'Placar') +
@@ -1009,6 +1025,9 @@ function renderPanel() {
         ch = chip('fin_turno', 'Fin de turno');
       } else if (ui.modo === 'blitz_objetivo') {
         txt = '<b>Penetración</b>: toca al rival objetivo.';
+      } else if (enCarga) {
+        txt = `<b>¡A la carga!</b> ${esc(Eq.nombre)} activa gratis a sus desmarcados (quedan ${E.pendiente.restantes}). Toca a uno.`;
+        ch = chip('evento_fin', 'Terminar la Carga', 'class="hot"');
       } else {
         txt = `Turno ${Eq.turno} de <b>${esc(Eq.nombre)}</b>. Toca a un jugador.`;
         ch = chip('fin_turno', 'Fin de turno');

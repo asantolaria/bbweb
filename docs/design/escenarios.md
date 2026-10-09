@@ -155,7 +155,7 @@ Heridas directas sin derribo: Apuñalar (armadura sin mods) y Proyectil de vómi
 | 7 | Entrenador brillante (reroll de la entrada) | M | ✔ |
 | 8 | Clima cambiante (+ dispersión 3 si perfecto) | M | ✔ |
 | 9 | Anticipación (D3+3 mueven 1) | receptor | ✔ |
-| 10 | ¡A la carga! (D3+3 activaciones gratis) | kicker | ✘ E1-S02 |
+| 10 | ¡A la carga! (D3+3 activaciones gratis: Mover, 1 Blitz, 1 Lanzar comp.; una caída la corta) | kicker | ✔ |
 | 11 | Indigestión (−1 MV/AR o al baño) | M (azar) | ✔ |
 | 12 | Invasión de campo (D3 aturdidos) | M (azar) | ✔ |
 
@@ -187,10 +187,10 @@ apotecario (usar + elegir lesión) · elegir diagnóstico · formación · casil
 
 ## 11 · Huecos conocidos, en una lista
 
-E1-S02 ¡A la carga! · E1-S03 Perseguir · E1-S04 Atento al balón · E1-S05 especiales en
-blitz · E1-S06 prórroga · reroll de equipo no ofrecido al atrapar · modo enlace:
-decisiones del ausente (asumido) · E3 entera. (E1-S01 Stalling y E1-S07 Solitario:
-cerrados el 2026-10-09.)
+E1-S03 Perseguir · E1-S04 Atento al balón · E1-S05 especiales en blitz · E1-S06
+prórroga · reroll de equipo no ofrecido al atrapar · modo enlace: decisiones del
+ausente (asumido) · E3 entera. (Cerrados el 2026-10-09: E1-S01 Stalling, E1-S02
+¡A la carga!, E1-S07 Solitario.)
 
 ## Método
 

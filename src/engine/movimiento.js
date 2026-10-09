@@ -37,6 +37,18 @@ export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = n
     throw new Error(`La acción ${accion} ya se declaró este turno.`);
   }
 
+  // ¡A la carga! (evento de patada 10): hasta D3+3 desmarcados del pateador, con
+  // Movimiento; UNO puede hacer Penetración y UNO Lanzar compañero. Si alguien cae,
+  // la Carga se corta (vía turnover, que terminarEvento limpia).
+  if (estado.pendiente?.tipo === 'blitz_event') {
+    if (!['move', 'blitz', 'ttm'].includes(accion)) {
+      throw new Error('En la Carga solo caben Movimiento, una Penetración y un Lanzar compañero.');
+    }
+    if (estado.pendiente.restantes <= 0) throw new Error('La Carga ya gastó sus activaciones.');
+    if (estaMarcado(estado, j)) throw new Error('A la Carga solo van jugadores desmarcados.');
+    estado.pendiente.restantes--;
+  }
+
   // Asegurar el balón: solo con el balón suelto, sin rivales de pie no distraídos a 2
   // casillas al declarar, y la declaran ni Big Guys ni jugadores con Tembloroso.
   if (accion === 'secure') {
