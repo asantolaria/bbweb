@@ -36,6 +36,10 @@ src/
 │   └── nombres.es.js     TODO nombre visible (ADR 002: el motor jamás lo importa)
 ├── bot/bot-aleatorio.js  bot legal que juega partidas completas; arnés de estrés y
 │                         embrión de la IA (E3)
+├── ia/                la IA (fase 2): lee el motor, el motor no la conoce
+│   ├── evaluacion.js     evaluar(estado, equipo) → total + desglose con porqués,
+│   │                     antisimétrica, ~5 µs
+│   └── pesos.js          pesos de la evaluación, todos hipótesis hasta el playtest
 ├── enlace.js          la partida comprimida dentro de la URL (ADR 001)
 └── ui/app.js          el tablero táctil: pantallas, vistas previas, decisiones
 index.html             esqueleto + CSS + registro del service worker (PWA)
