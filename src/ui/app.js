@@ -131,12 +131,15 @@ const CARA_ES = {
 
 function opcionesMotor(decidir) {
   return {
-    alFallar: (tipo, c) => {
+    alFallar: (tipo, c, jugadorId) => {
       const Eq = E.equipos[E.activo];
       if (Eq.rerolls <= 0) return false;
       const detalle = c?.necesario ? ` — hacía falta ${c.necesario}+ y salió ${c.valor}` : '';
+      const j = jugadorId && E.jugadores[jugadorId];
+      const solo = j?.hab.find((h) => h.startsWith('loner_'));
+      const aviso = solo ? ` ⚠ Solitario (${solo.slice(-1)}+): puede gastarse sin repetir` : '';
       return decidir({
-        tipo: 'si_no', titulo: `Ha fallado: ${tipo}${detalle}`,
+        tipo: 'si_no', titulo: `Ha fallado: ${tipo}${detalle}${aviso}`,
         si: `Gastar reroll (quedan ${Eq.rerolls})`, no: 'Aceptar el resultado',
       });
     },
@@ -367,6 +370,13 @@ function prepararResultados(eventos) {
         break;
       case 'touchdown':
         tarjetas.push({ icono: '🏆', titulo: `¡TOUCHDOWN de ${ev.equipo}!`, detalle: `Marcador ${ev.marcador.join(' – ')}` });
+        break;
+      case 'solitario':
+        tarjetas.push({
+          icono: '🐺', titulo: `Solitario ${ev.objetivo}+ — ${nombre(ev.jugador)}`,
+          dados: [ev.d6], exito: ev.repite,
+          detalle: ev.repite ? 'El reroll procede' : 'El reroll se GASTA sin repetir nada',
+        });
         break;
       case 'rush':
         if (ev.chequeo) tarjetas.push({ icono: '💨', titulo: `Fuerza la marcha — ${nombre(ev.jugador)}`, ...cheq(ev.chequeo) });

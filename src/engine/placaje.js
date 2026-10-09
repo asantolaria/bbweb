@@ -21,6 +21,7 @@ import { sonAdyacentes } from './tablero.js';
 import { tiene } from '../data/habilidades.js';
 import { resolverSuelo } from './derribo.js';
 import { rebotar, saqueDeBanda } from './balon.js';
+import { usarRerollEquipo } from './rerolls.js';
 
 /** Las caras del dado de placaje. */
 export const CARAS_PLACAJE = ['player_down', 'both_down', 'push', 'push', 'stumble', 'pow'];
@@ -263,10 +264,8 @@ export function placar(estado, atacanteId, objetivoId, { azar, blitz = false, op
   // Reroll de equipo: repite TODOS los dados del grupo… salvo que Luchador ya repitiera
   // uno — «si un Reroll permite repetir un dado de un grupo, no se puede usar otra
   // fuente para repetir el resto» (fundamentos §6).
-  if (!luchadorUsado && opciones.alFallar?.('placaje', { resultados, fuerzas: f })) {
-    const E = estado.equipos[A.equipo];
-    if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
-    E.rerolls--;
+  if (!luchadorUsado && opciones.alFallar?.('placaje', { resultados, fuerzas: f }, A.id)
+      && usarRerollEquipo(estado, A, { azar }).repite) {
     resultados = tirarDados(f.dados, azar);
     anotar(estado, 'placaje_reroll', { atacante: A.id, dados: resultados });
   }

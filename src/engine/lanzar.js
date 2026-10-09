@@ -17,6 +17,7 @@ import { tiradaHeridas } from './heridas.js';
 import { rebotar, saqueDeBanda, soltarBalon } from './balon.js';
 import { alcance } from './pase.js';
 import { terminarActivacion } from './movimiento.js';
+import { usarRerollEquipo } from './rerolls.js';
 
 /**
  * Lanza al compañero a la casilla objetivo. Requiere una acción 'ttm' en curso, el
@@ -75,10 +76,7 @@ export function lanzarCompanero(estado, companeroId, objetivoX, objetivoY, { aza
   }
   let c = chequeo({ objetivo: L.perfil.ps, mods, azar, motivo: `lanzar compañero (${L.id})` });
   anotar(estado, 'lanzamiento', { jugador: L.id, chequeo: c });
-  if (!c.exito && opciones.alFallar?.('lanzamiento', c)) {
-    const E = estado.equipos[L.equipo];
-    if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
-    E.rerolls--;
+  if (!c.exito && opciones.alFallar?.('lanzamiento', c, L.id) && usarRerollEquipo(estado, L, { azar }).repite) {
     c = chequeo({ objetivo: L.perfil.ps, mods, azar, motivo: `lanzar compañero (${L.id}, reroll)` });
     anotar(estado, 'lanzamiento_reroll', { jugador: L.id, chequeo: c });
   }
@@ -184,10 +182,7 @@ function resolverVuelo(estado, L, C, { objetivoX, objetivoY, pifia = false, medi
 
   let c = chequeo({ objetivo: C.perfil.ag, mods, azar, motivo: `aterrizaje (${C.id})` });
   anotar(estado, 'aterrizaje', { jugador: C.id, chequeo: c });
-  if (!c.exito && opciones.alFallar?.('aterrizaje', c)) {
-    const E = estado.equipos[C.equipo];
-    if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
-    E.rerolls--;
+  if (!c.exito && opciones.alFallar?.('aterrizaje', c, C.id) && usarRerollEquipo(estado, C, { azar }).repite) {
     c = chequeo({ objetivo: C.perfil.ag, mods, azar, motivo: `aterrizaje (${C.id}, reroll)` });
     anotar(estado, 'aterrizaje_reroll', { jugador: C.id, chequeo: c });
   }

@@ -10,6 +10,7 @@ import { jugador, enCasilla, marcadoresDe, estaMarcado, anotar, tieneZonaDefensa
 import { tiene } from '../data/habilidades.js';
 import { resolverSuelo } from './derribo.js';
 import { rebotar } from './balon.js';
+import { usarRerollEquipo } from './rerolls.js';
 
 /** Acciones limitadas a 1 por turno de equipo. */
 const UNA_POR_TURNO = new Set(['blitz', 'pass', 'handoff', 'foul', 'ttm', 'secure']);
@@ -217,8 +218,7 @@ export function paso(estado, destinoX, destinoY, { azar, alFallar = () => false,
     const mods = estado.clima === 'blizzard' ? [{ v: -1, porque: 'Ventisca' }] : [];
     let c = chequeo({ objetivo: 2, mods, azar, motivo: `Forzar la marcha (${j.id})` });
     anotar(estado, 'rush', { jugador: j.id, chequeo: c });
-    if (!c.exito && alFallar('rush', c)) {
-      gastarReroll(estado, j.equipo);
+    if (!c.exito && alFallar('rush', c, j.id) && usarRerollEquipo(estado, j, { azar }).repite) {
       c = chequeo({ objetivo: 2, mods, azar, motivo: `Forzar la marcha (${j.id}, reroll)` });
       anotar(estado, 'rush_reroll', { jugador: j.id, chequeo: c });
     }
@@ -264,13 +264,6 @@ function moverA(estado, j, x, y) {
   j.x = x; j.y = y;
 }
 
-function gastarReroll(estado, equipo) {
-  const E = estado.equipos[equipo];
-  if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
-  E.rerolls--;
-  anotar(estado, 'reroll_equipo', { equipo });
-}
-
 /** El chequeo de esquivar, con Escurridizo, Cola prensil y la habilidad Esquivar. */
 function esquivar(estado, j, [ox, oy], [dx, dy], { azar, alFallar }) {
   const a = estado.activacion;
@@ -298,8 +291,7 @@ function esquivar(estado, j, [ox, oy], [dx, dy], { azar, alFallar }) {
     a.esquivarUsado = true;
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, repite por Esquivar)` });
     anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: 'dodge', chequeo: c });
-  } else if (!c.exito && alFallar('esquivar', c)) {
-    gastarReroll(estado, j.equipo);
+  } else if (!c.exito && alFallar('esquivar', c, j.id) && usarRerollEquipo(estado, j, { azar }).repite) {
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, reroll de equipo)` });
     anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: null, chequeo: c });
   }
@@ -343,8 +335,7 @@ function recogerBalon(estado, j, { azar, alFallar }) {
   if (!c.exito && tiene(j.hab, 'sure_hands')) {
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, repite por Manos seguras)` });
     anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: 'sure_hands', chequeo: c });
-  } else if (!c.exito && alFallar('recoger', c)) {
-    gastarReroll(estado, j.equipo);
+  } else if (!c.exito && alFallar('recoger', c, j.id) && usarRerollEquipo(estado, j, { azar }).repite) {
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, reroll de equipo)` });
     anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: null, chequeo: c });
   }
@@ -416,8 +407,7 @@ export function saltar(estado, destinoX, destinoY, { azar, alFallar = () => fals
 
   let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `saltar (${j.id})` });
   anotar(estado, 'saltar', { jugador: j.id, a: [destinoX, destinoY], chequeo: c });
-  if (!c.exito && alFallar('saltar', c)) {
-    gastarReroll(estado, j.equipo);
+  if (!c.exito && alFallar('saltar', c, j.id) && usarRerollEquipo(estado, j, { azar }).repite) {
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `saltar (${j.id}, reroll de equipo)` });
     anotar(estado, 'saltar_reroll', { jugador: j.id, chequeo: c });
   }

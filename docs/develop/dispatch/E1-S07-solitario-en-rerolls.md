@@ -1,6 +1,6 @@
 # E1-S07: Solitario (X+) al usar rerolls de equipo
 
-## Status: To Do
+## Status: Done (2026-10-09)
 ## Epic: E1 — Reglas pendientes del motor
 ## Priority: Alta (afecta a los 7 Big Guys de los equipos iniciales, en cada reroll)
 
@@ -16,10 +16,11 @@ jugador, {azar}) → { repite: bool } aplicado en: esquivar, recoger, saltar, ru
 pase, lanzamiento, aterrizaje y el grupo del placaje (Solitario del atacante).
 
 ## Acceptance Criteria
-- [ ] Helper único de gasto de reroll con la tirada de Solitario dentro, explicada
-- [ ] Con 1D6 < X: reroll descontado, tirada NO repetida, tarjeta de resultado honesta
-- [ ] Tests: Ogro (3+) y Troll del Caos (4+) en esquiva, placaje y pase
-- [ ] El bot y el barrido de 810 siguen en verde
+- [x] Helper único de gasto de reroll (engine/rerolls.js) con la tirada explicada
+- [x] Con 1D6 < X: reroll descontado, tirada NO repetida, tarjeta 🐺 honesta
+- [x] Tests: Ogro (3+) en esquiva, Troll del Caos (4+) en placaje de grupo, controles
+      sin Solitario y el Troll Adiestrado (que no lo lleva)
+- [x] Suite completa en verde (175); aviso ⚠ en la UI antes de gastar el reroll
 
 ## Tasks
 (Por refinar con /hive:plan)

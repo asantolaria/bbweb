@@ -11,6 +11,7 @@ import { jugador, enCasilla, marcadoresDe, tieneZonaDefensa, anotar } from './pa
 import { tiene } from '../data/habilidades.js';
 import { intentarAtrapar, rebotar, saqueDeBanda } from './balon.js';
 import { terminarActivacion } from './movimiento.js';
+import { usarRerollEquipo } from './rerolls.js';
 
 // T = la casilla del lanzador, Q/S/L/B = Rápido/Corto/Largo/Bomba, espacio = fuera de alcance.
 const TABLA_ALCANCE = [
@@ -96,10 +97,7 @@ export function pase(estado, objetivoX, objetivoY, { azar, opciones = {}, bomba 
   if (!c.exito && tiene(j.hab, 'pass')) {
     c = chequeo({ objetivo: j.perfil.ps, mods, azar, motivo: `pase (${j.id}, repite por Pasar)` });
     anotar(estado, 'pase_reroll', { jugador: j.id, habilidad: 'pass', chequeo: c });
-  } else if (!c.exito && opciones.alFallar?.('pase', c)) {
-    const E = estado.equipos[j.equipo];
-    if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
-    E.rerolls--;
+  } else if (!c.exito && opciones.alFallar?.('pase', c, j.id) && usarRerollEquipo(estado, j, { azar }).repite) {
     c = chequeo({ objetivo: j.perfil.ps, mods, azar, motivo: `pase (${j.id}, reroll de equipo)` });
     anotar(estado, 'pase_reroll', { jugador: j.id, habilidad: null, chequeo: c });
   }
