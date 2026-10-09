@@ -1,223 +1,149 @@
 # Arquitectura
 
-Todo vive en `index.html` (~97 KB, ~740 líneas): datos, estilos y lógica. No hay módulos,
-ni framework, ni paso de compilación. El archivo tiene tres bloques en este orden:
+> Revisada el 2026-10-09. La versión anterior describía la mesa v0 de un solo archivo;
+> aquella app vive ahora en `legacy/mesa-v0.html` como pieza histórica y no se mantiene.
 
-1. **`<head>`** — fuentes de Google (Saira Condensed + Barlow) y un `<style>` con todo el
-   CSS. Paleta por variables en `:root`, con bloque `@media (prefers-color-scheme: dark)`
-   y `:root[data-theme="dark"]` para el tema oscuro.
-2. **Markup** — el esqueleto fijo: `header` (marcador y botón de fin de turno), `main`
-   (el campo), `footer` (panel de información + navegación), más la hoja modal `#wrap` y
-   el `#toast`. Todo lo demás se pinta por `innerHTML`.
-3. **`<script>`** — datos y lógica, sin `type="module"`, sin `defer`: se ejecuta al final.
+## La forma del sistema
 
-## Datos (constantes, no se tocan en caliente)
-
-| Constante | Qué es |
-|---|---|
-| `RACES` | Los 30 equipos. Cada uno: nombre, coste de re-roll (`rr`), boticario (`apo`), máximo de jugadores grandes (`bg`), `tier`, reglas especiales y `pos[]` con los posicionales. |
-| `pos[]` | Por posicional: clave, nombre castellano (`n`) e inglés (`en`), abreviatura de ficha (`ab`), máximo (`max`), coste, `ma`/`st`/`ag`/`pa`/`av`, rol para el color (`r`) y habilidades (`sk`). |
-| `TABLES` | `weather`, `kickoff`, `injury`, `casualty`, `lasting` — dados que tira cada una, rangos y texto. |
-| `BLOCK` | Las seis caras del dado de placaje. |
-| `COLORS` | Paleta de equipo (color de ficha + color de texto). |
-| `DIRS` / `ARROW` | Las ocho direcciones del D8, en vector y en flecha. |
-
-## Estado
-
-Un único objeto `S`, serializable a JSON. Eso es lo que hace baratos el guardado y el
-deshacer: `save()` lo mete entero en `localStorage` bajo la clave
-`bb-mesa-bb2025-v4`, y `commit()` apila una copia en `hist` (máximo 80) antes de cada
-cambio. **Subir la versión de la clave invalida las partidas guardadas** — es lo que hay
-que hacer cuando cambian los datos de equipo.
-
-```js
-S = {
-  teams: [T0, T1],      // cada T: name, race, color, players[], score, rr, rrMax,
-                        //          turn, df (ayudantes/animadoras), ff, apo, apoUsed…
-  ball, carrier,        // balón suelto {x,y} | id del portador
-  active, half, gturn,  // equipo con el turno, parte, turno global
-  phase,                // ver máquina de estados
-  budget, kicker, firstKicker, coin, weather, kick, used, drive, lastScorer, halfOver
-}
-```
-
-Cada jugador: `{id, k (posicional), num, st, x, y, prone, stun, stunAt, act, mv}`, donde
-`st` es `reserve | pitch | ko | cas`. `p.t` (índice de equipo) **no se guarda**: lo añade
-`allP()` al vuelo.
-
-Todo cambio pasa por `commit(fn)`, que apila el historial, ejecuta `fn`, comprueba
-touchdown, guarda y repinta. No modifiques `S` fuera de `commit`.
-
-## Máquina de estados (`S.phase`)
+Tres capas con una regla de dependencia estricta — el motor no conoce a nadie:
 
 ```
-pre_teams ──► pre_game ──► setup_kick ──► setup_recv ──► kick_place ──► kick_land
- (fichajes)   (previa:      (despliega     (despliega     (elige        (D8+D6
-              afición,       el que         el que         casilla)      de desvío)
-              clima,         patea)         recibe)                          │
-              moneda)                                                        ▼
-                                                                        kick_event
-     ┌──────────────────────────────────────────────────────────────────┘
-     ▼
-   turn ──► drive_end ──► (siguiente drive: setup_kick)  ──►  end
+src/
+├── engine/            el motor de reglas: puro, sin DOM, sin nombres propios, testeado
+│   ├── dice.js           dados y chequeos con modificadores justificados
+│   ├── tablero.js        geometría 15×26 (zonas, LOS, direcciones del D8)
+│   ├── partido.js        estado del partido, marcaje, zonas de defensa, registro
+│   ├── equipo.js         coste y validación de rosters; crearEquipo()
+│   ├── heridas.js        tablas: armadura, heridas (+Escurridizos), lesiones, permanentes
+│   ├── derribo.js        la cadena suelo→armadura→heridas→lesión; heridaDirecta()
+│   ├── balon.js          rebote, atrapar, saque de banda
+│   ├── movimiento.js     activar (rasgos negativos), pasos, esquivar, rush, saltar,
+│   │                     levantarse, recoger, Asegurar el balón, Dejada
+│   ├── placaje.js        apoyos, dados, empujones (cadena/banda/público), impulso,
+│   │                     Furia, Penetración (objetivo declarado, 1 MV)
+│   ├── pase.js           alcances (tabla oficial), precisión, pifia, intercepción
+│   ├── falta.js          falta, expulsión por dobles, protesta, soborno
+│   ├── lanzar.js         Lanzar compañero (Siempre hambriento, vuelos, aterrizajes)
+│   ├── especiales.js     Apuñalar y Proyectil de vómito (heridas sin derribo)
+│   ├── apotecario.js     curar KO (a su casilla) o lesión (segunda tirada y elección)
+│   └── secuencia.js      previa, despliegue, patada y sus 11 eventos, turnos,
+│                         touchdowns, final de entrada, descanso, final
+├── data/              datos del juego, separados del motor Y de los nombres
+│   ├── equipos.js        9 equipos: perfiles, cupos, costes, habilidades, rol de anillo
+│   ├── habilidades.js    registro de habilidades (categoría, élite, parametrizadas)
+│   ├── rosters-iniciales.js  los 9 rosters por defecto, legales y a 1.000k exactos
+│   ├── formaciones.js    Ziggurat, Chevrón, Columnas, Caja, Lanzamiento + asignador
+│   └── nombres.es.js     TODO nombre visible (ADR 002: el motor jamás lo importa)
+├── bot/bot-aleatorio.js  bot legal que juega partidas completas; arnés de estrés y
+│                         embrión de la IA (E3)
+├── enlace.js          la partida comprimida dentro de la URL (ADR 001)
+└── ui/app.js          el tablero táctil: pantallas, vistas previas, decisiones
+index.html             esqueleto + CSS + registro del service worker (PWA)
+sw.js                  caché offline, versionada (bbweb-vN invalida a los clientes)
+test/                  147+ tests, node --test, cero dependencias
 ```
 
-`guide()` es la pieza central: dada la fase, devuelve el título, el texto, los botones
-(«chips») y la etiqueta del botón principal del panel. `doPrimary()` ejecuta ese botón.
-**Para añadir una fase hay que tocar las dos**, más `setupCheck()` si requiere validar un
-despliegue.
+Módulos ES nativos: **no hay build**. Se sirve en local (`npm run serve`) y en
+producción (Vercel, `vercel deploy --prod`; proyecto `bbweb`, cuenta personal).
 
-## Render
+## El estado del partido
 
-`render()` llama a cuatro funciones independientes, cada una dueña de su zona del DOM:
+`crearPartido()` devuelve un objeto JSON serializable — obligación del ADR 001: la
+partida entera debe caber comprimida en un enlace (~700–1.200 caracteres medidos).
 
-- `renderTop()` — marcador y botón de fin de turno.
-- `renderPitch()` — el campo. Calcula `--cell` a partir del alto disponible (de ahí el
-  `addEventListener('resize', …)` del final) y pinta las 390 casillas con `tokenHTML()`.
-- `renderPanel()` — info del jugador seleccionado o guía de fase, y los chips.
-- `renderNav()` — los cinco botones inferiores: equipo 0, equipo 1, Dados, Partido,
-  Deshacer.
+- Posturas: `de_pie | distraido | tumbado | aturdido`. Situaciones:
+  `reserva | campo | ko | lesionado | expulsado | devorado`.
+- Todo evento con dados se apila en `estado.registro` con sus modificadores y porqués:
+  de ahí salen la hoja de Tiradas, las tarjetas de resultado y la futura repetición de
+  la jugada rival (E2-S02).
+- `estado.fase` gobierna el flujo: `pre_partido → eleccion_saque → despliegue_kicker →
+  despliegue_receiver → patada → evento_patada → (recepcion_libre) → turno ⇄ … → fin`,
+  con `estado.pendiente` para los eventos de patada interactivos.
+- Identificadores en inglés (`'badly_hurt'`, `'block'`), código y comentarios en
+  castellano. Los ids de jugador llevan prefijo de raza; `crearPartido` renombra al
+  visitante en los espejos para evitar colisiones.
 
-Las hojas modales se pintan aparte en `renderSheet()`, que elige entre `teamSheet()`,
-`diceSheet()`, `preSheet()` y `gameSheet()`.
+## Tres reglas de la casa (motor)
 
-Todo es `innerHTML` con plantillas, sin diffing. A este tamaño no se nota, y evita tener
-que sincronizar estado con DOM: el DOM es siempre una función de `S`.
+**Ningún modificador sin motivo.** `chequeo()` lanza si un modificador llega sin su
+campo `porque`. El PRD exige que toda tirada se justifique en pantalla; un modificador
+que no sabe explicarse no compila.
 
-## Eventos
+**El azar se inyecta.** Toda función que tira dados acepta `azar`: criptográfico en
+producción (`azarReal`, con rechazo del resto), guionizado en los tests (cada banda de
+cada tabla se prueba en sus bordes exactos), con semilla en el bot.
 
-Dos puntos de entrada, por delegación:
+**Las decisiones de entrenador son callbacks.** El motor no decide por nadie: dados de
+placaje, casillas de empuje, impulso, Forcejear, interceptar, rerolls de equipo,
+protestar, sobornar y el apotecario llegan como funciones síncronas en `opciones`.
 
-- `tapCell(x, y)` — toque en el campo: seleccionar, mover, colocar en despliegue, elegir
-  casilla de patada, según la fase.
-- `act(btn)` — todo lo demás. Cada botón lleva `data-act` (y `data-t`, `data-s`, `data-d`…
-  como parámetros) y `act()` es el `switch` que los despacha. **Un botón nuevo = una
-  entrada en ese switch**, nunca un `onclick`.
+## La interfaz: decisiones por replay
 
-## Dados
+El truco central de `ui/app.js` (sin tocar el motor): como el estado es serializable y
+el azar va inyectado, `ejecutar(fn)` corre la acción entera; si un callback necesita una
+decisión sin respuesta, se lanza `NecesitaDecision`, se DESCARTA la ejecución parcial,
+se pregunta con una hoja táctil (async) y se repite la acción con los **mismos dados
+grabados** y la respuesta puesta. Determinista y justo: una decisión posterior nunca
+altera dados ya vistos; una rama nueva (un reroll) tira dados frescos.
 
-`rnd(n)` usa `crypto.getRandomValues`, no `Math.random`. `roll(n, f, block)` tira dados
-sueltos y `rollTable(k)` resuelve una entrada de `TABLES`. Todas las tiradas se apilan en
-`diceLog`, que se muestra en la hoja de Dados.
+Encima de eso:
+- **Vistas previas antes de tirar**: el placaje ilumina los apoyos en el tablero (verde
+  ofensivos, naranja defensivos) y anuncia dados y quién elige; el pase pinta el campo
+  por alcances (verde→rojo) y confirma; la patada se confirma sobre la casilla.
+- **Tarjetas de resultado**: cada acción con dados termina en un modal paginado (icono,
+  dados, ✅/❌, modificadores) construido del `registro` — se enseña lo que pasó, no una
+  reconstrucción. Los paseos sin incidentes no interrumpen.
+- **Intersticial de relevo** («le toca a X») cuando cambia quién decide, también al
+  abrir un enlace recibido; modales de fase a pantalla completa cuando la cuadrícula no
+  pinta nada (previa, evento de patada, apotecario, final).
+- **Deshacer** por pila de snapshots (40); **guardado** automático en localStorage
+  (clave `bbweb-v1`); **enlace** vía `aEnlace()/desdeEnlace()`.
+
+## PWA y despliegue
+
+`sw.js` cachea los ~24 archivos con stale-while-revalidate: la app juega sin cobertura
+y actualiza en la segunda apertura. **Todo cambio desplegado debe subir `VERSION`**
+(`bbweb-vN`) o los móviles seguirán sirviendo la caché vieja. Producción:
+https://bbweb-umber.vercel.app (deploy manual `vercel deploy --prod` hasta cerrar
+E4-S01; `.vercelignore` deja fuera docs, legacy y tests).
 
 ## Dónde tocar
 
 | Quiero… | Toco |
 |---|---|
-| Corregir un perfil o un coste | la entrada en `RACES` **y subir `KEY`** |
-| Añadir un equipo | una entrada en `RACES` (el selector se genera solo por `tier`) |
-| Cambiar una tabla | `TABLES` |
-| Añadir un botón | el markup o la plantilla que lo pinta + un `case` en `act()` |
-| Cambiar el flujo del partido | `guide()` + `doPrimary()` (+ `setupCheck()`) |
-| Cambiar la pinta de las fichas | `tokenHTML()` y las reglas `.tk` del `<style>` |
-
-## Lo que no hay (a propósito)
-
-Sin build, sin tests, sin dependencias en tiempo de ejecución salvo las dos fuentes de
-Google — que degradan a `system-ui` y `Arial Narrow` si no cargan. Si el archivo se
-publica en un entorno con CSP estricta (por ejemplo como Artifact de Claude), las fuentes
-se bloquean y se usa el fallback; el resto funciona igual. Para evitarlo habría que
-empotrar las fuentes como `data:` URI, lo que multiplicaría el tamaño del archivo.
-
----
-
-# En construcción: el motor de reglas
-
-El `index.html` de arriba es la **mesa** actual: mueve fichas y tira dados, pero no
-arbitra. A partir del 2026-10-08 se está construyendo junto a él un **motor de reglas**
-que sí lo hará (ver [PRD](prd.md)). Hasta que esté terminado conviven los dos.
-
-```
-src/
-├── engine/        motor puro: ni DOM, ni localStorage, ni nombres propios
-│   ├── dice.js        dados y chequeos con modificadores justificados
-│   ├── heridas.js     tablas de armadura, heridas, lesiones y permanentes
-│   ├── equipo.js      coste y validación de rosters; crearEquipo()
-│   ├── tablero.js     geometría del campo (15×26, zonas, direcciones D8)
-│   ├── partido.js     estado del partido, marcaje y zonas de defensa
-│   ├── balon.js       rebote, atrapar y saque de banda
-│   ├── derribo.js     la cadena suelo→armadura→heridas→lesión, con Cabeza dura,
-│   │                  Regeneración y Equilibrio firme
-│   ├── movimiento.js  activar (con rasgos negativos), pasos, esquivar, forzar la
-│   │                  marcha, saltar, levantarse y recoger
-│   ├── placaje.js     apoyos, dados de placaje, empujones (cadena, banda, público),
-│   │                  impulso, Furia y Penetración, con sus diez habilidades
-│   ├── pase.js        pase y entrega: alcances (tabla oficial), precisión, pifia,
-│   │                  dispersión, intercepción y las habilidades de pase
-│   ├── falta.js       falta con apoyos, expulsión por dobles, protesta y soborno
-│   └── secuencia.js   previa, despliegue, patada y sus 11 eventos, turnos, touchdown,
-│                      final de entrada, descanso y final de partido
-├── data/          equipos, habilidades y rosters; aparte, los nombres de pantalla
-└── enlace.js      serializar la partida dentro de la URL (ADR 001)
-test/              un fichero por módulo; `npm test` (node --test, sin dependencias)
-```
-
-## El estado del partido
-
-`crearPartido()` devuelve un objeto JSON serializable (tiene que caber en el enlace).
-Posturas: `de_pie | distraido | tumbado | aturdido`; situaciones:
-`reserva | campo | ko | lesionado | expulsado`. Todo evento con dados se apila en
-`estado.registro` con sus modificadores explicados — de ahí saldrá el panel de
-«ver tiradas» de la interfaz.
-
-Los rerolls de equipo no los decide el motor: las funciones de movimiento aceptan un
-callback `alFallar(tipo, chequeo)` que la capa de turno (o la UI) usa para preguntar al
-entrenador. Las repeticiones de habilidad (Esquivar, Manos seguras, Atrapar) se aplican
-solas porque son gratis y no hay razón para no usarlas.
-
-## Tres reglas de la casa
-
-**Ningún modificador sin motivo.** `chequeo()` lanza una excepción si recibe un
-modificador sin el campo `porque`. No es una comprobación defensiva de cortesía: el PRD
-exige que cualquier tirada se pueda justificar en pantalla, así que un modificador que no
-sabe explicarse no debe llegar a producción.
-
-```js
-chequeo({ objetivo: 3, mods: [
-  { v: -1, porque: 'Línea Orco marca el destino' },
-  { v: -1, porque: 'Blitzer Orco marca el destino' },
-]})  // → necesario: 5
-```
-
-**Identificadores en inglés, prosa en castellano.** Las claves de datos (`'badly_hurt'`,
-`'human_blitzer'`, `'block'`) van en inglés porque es lo que usan todas las fuentes de
-datos y lo que mantiene la capa de nombres separable ([ADR 002](adr-002-nombres-separados-del-motor.md)).
-El código, los comentarios y los tests van en castellano.
-
-**El azar se inyecta.** Toda función que tire dados acepta un parámetro `azar`. En
-producción es `azarReal` (criptográfico, con rechazo del resto para no sesgar las caras);
-en los tests es un dado guionizado, lo que permite comprobar **cada banda de cada tabla**
-en sus bordes exactos en vez de muestrear al azar.
-
-## Dónde buscar cada regla
-
-| Regla | Módulo | Fuente |
-|---|---|---|
-| 1 natural falla, 6 natural acierta, tope en 6 sin suelo | `dice.js` | `tablas/fundamentos-y-principios.md` §6 |
-| Armadura, Heridas, Lesiones, permanentes, público | `heridas.js` | `tablas/heridas-y-lesiones.md` |
-| Formato del enlace | `enlace.js` | [ADR 001](adr-001-multijugador-por-enlace.md) |
-
-«Fuente» es siempre un fichero de
-[`asantolaria/bloodbowl-my-rosters`](https://github.com/asantolaria/bloodbowl-my-rosters).
-
-## Trampas que ya han mordido
-
-**AR no empeora como AG y PS.** Los tres se escriben «X+», pero AG y PS son objetivos que
-tira el propio jugador (peor = subir, 3+ → 4+) y AR es el objetivo que tira el **rival**
-para romper la armadura (peor = bajar, 9+ → 8+). Agruparlos costó un test en rojo.
-
-**El 9 de la tabla de Escurridizos no es una Lesión más.** Es Magullado ya resuelto: no se
-tira el D16. En la tabla normal, el 9 ni siquiera es Lesión, es un KO.
+| Corregir un perfil o coste | `data/equipos.js` + tests de `datos.test.js` |
+| Añadir un equipo | `data/equipos.js` (con `rol`), `rosters-iniciales.js`, `nombres.es.js`, habilidades nuevas a `habilidades.js` con gancho de motor y test (proceso: E5-S01) |
+| Una regla nueva | su módulo de `engine/` + test con dados guionizados + fuente citada en comentario |
+| Una habilidad nueva | registro en `data/habilidades.js` + gancho donde aplique + test |
+| Cambiar el flujo del partido | `secuencia.js` (fases) y los interstitiales de `app.js` |
+| Una decisión de entrenador nueva | callback en `opciones` del motor + `opcionesMotor()` en la UI |
+| La pinta de fichas/tablero | CSS de `index.html` + `renderPitch()` |
+| El formato del enlace | `enlace.js` — y SUBIR `VERSION_ESTADO` (rompe enlaces en circulación) |
 
 ## Decisiones de interpretación anotadas
 
-- **Golpe mortífero** («+1 a Armadura o Heridas, a elegir después de tirar»): la elección
-  óptima es mecánica, así que el motor la automatiza — si la armadura falla por 1 exacto
-  se gasta ahí (la alternativa es que no pase nada); si rompe sola, se guarda para las
-  heridas. Queda explicada en el registro de tiradas.
-- **Mantenerse firme en mitad de una cadena**: si el jugador de la cadena no se mueve, la
-  casilla sigue ocupada y el empujón entero queda absorbido (nadie se mueve). El
-  reglamento no cubre el caso explícitamente; interpretación anotada en `placaje.js`.
-- **El resultado «aplicado» manda**: cuando una habilidad convierte un resultado (Imparable
-  o Esquivar convierten en empujón), la función devuelve el resultado aplicado y el dado
-  elegido queda en el registro (`placaje_resultado`).
+- **Golpe mortífero**: la elección armadura/heridas se automatiza de forma óptima (si
+  la armadura falla por 1 exacto se gasta ahí; si rompe sola, va a heridas) y queda
+  explicada en el registro.
+- **Mantenerse firme en una cadena**: si el de la cadena no se mueve, el empujón entero
+  queda absorbido (el reglamento no cubre el caso; anotado en `placaje.js`).
+- **El resultado aplicado manda**: cuando una habilidad convierte un resultado
+  (Imparable, Esquivar), la función devuelve lo aplicado y el dado elegido queda en el
+  registro.
+- **Caer al público lanzado por un compañero**: cambio de turno solo para el portador
+  (la lista canónica de causas y la FAQ del devorado mandan sobre la hoja de
+  referencia, que se contradice).
+- **Escurridizo** ignora marcadores «al esquivar» según su texto: al saltar cuentan
+  todos.
+
+## Trampas que ya han mordido
+
+- **Los campos de evento no se llaman `tipo`**: `anotar(estado, tipo, datos)` hace
+  spread de `datos` y un campo `tipo` pisa el tipo del evento. Pasó con el pase y con
+  Lanzar compañero. Tercera vez: refactorizar `anotar` para blindarlo.
+- **AR no empeora como AG y PS**: peor armadura es BAJAR el número (9+ → 8+).
+- **El 9 de la tabla de Escurridizos** es Magullado ya resuelto, sin D16.
+- **El service worker enseña código viejo** en la primera apertura tras un deploy: es
+  su diseño (revalida detrás). Para probar: desregistrar y limpiar caches.
+- **Espejos**: dos equipos de la misma raza colisionaban ids hasta el renombrado del
+  visitante en `crearPartido`.
