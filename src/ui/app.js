@@ -7,7 +7,7 @@
 // descarta, se pregunta con calma y se re-ejecuta con los MISMOS dados grabados y la
 // respuesta puesta. Determinista, y el motor ni se entera (ver conDecisiones()).
 
-import { azarReal } from '../engine/dice.js';
+import { azarReal, azarConSemilla } from '../engine/dice.js';
 import { EQUIPOS } from '../data/equipos.js';
 import { ROSTERS_1000K } from '../data/rosters-iniciales.js';
 import { EQUIPOS_ES, POSICIONES_ES, FICHA_ES, HABILIDADES_ES } from '../data/nombres.es.js';
@@ -31,6 +31,11 @@ import {
 import { aEnlace, desdeEnlace, tramoRival } from '../enlace.js';
 
 const KEY = 'bbweb-v1';
+
+// ?semilla=N fija los dados (pruebas de interfaz reproducibles, E2-S01). Sin el
+// parámetro, dados criptográficos como siempre.
+const SEMILLA = Number(new URLSearchParams(location.search).get('semilla'));
+const azarBase = Number.isInteger(SEMILLA) && SEMILLA > 0 ? azarConSemilla(SEMILLA) : azarReal;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
@@ -82,7 +87,7 @@ async function ejecutar(fn) {
       const azar = (caras) => {
         if (iDado < dados.length && dados[iDado].caras === caras) return dados[iDado++].v;
         dados.length = iDado;                    // una rama nueva: los dados viejos ya no valen
-        const v = azarReal(caras);
+        const v = azarBase(caras);
         dados.push({ caras, v }); iDado++;
         return v;
       };

@@ -5,3 +5,5 @@ test
 .claude
 scripts
 *.md
+node_modules
+ui-tests

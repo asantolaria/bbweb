@@ -40,7 +40,9 @@ src/
 └── ui/app.js          el tablero táctil: pantallas, vistas previas, decisiones
 index.html             esqueleto + CSS + registro del service worker (PWA)
 sw.js                  caché offline, versionada (bbweb-vN invalida a los clientes)
-test/                  147+ tests, node --test, cero dependencias
+test/                  tests del motor: `npm test`, node --test, cero dependencias
+ui-tests/              pruebas de interfaz: `npm run test:ui` (Playwright, solo dev;
+                       Chrome del sistema; dados fijados con ?semilla=N)
 ```
 
 Módulos ES nativos: **no hay build**. Se sirve en local (`npm run serve`) y en

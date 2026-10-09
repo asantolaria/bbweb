@@ -6,6 +6,10 @@
   "description": "Mesa de Blood Bowl — motor de reglas y tablero para móvil",
   "scripts": {
     "test": "node --test",
-    "serve": "python3 -m http.server 8000"
+    "serve": "python3 -m http.server 8000",
+    "test:ui": "node --test --test-concurrency=1 \"ui-tests/*.ui.js\""
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
   }
 }

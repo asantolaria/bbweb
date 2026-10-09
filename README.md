@@ -25,7 +25,12 @@ Publicar cambios: `vercel deploy --prod` (proyecto `bbweb` de la cuenta personal
 Vercel; el despliegue automático por push se activa conectando GitHub en el dashboard).
 
 La app usa módulos ES nativos: hace falta servirla (no funciona con doble clic en el
-archivo). No hay build ni dependencias: `node --test` para los tests y listo.
+archivo). No hay build ni dependencias en tiempo de ejecución:
+
+```bash
+npm test            # motor: node --test, cero dependencias
+npm install && npm run test:ui   # interfaz: Playwright (solo desarrollo) + Chrome del sistema
+```
 
 - **Un móvil**: os lo vais pasando (hot-seat).
 - **Dos móviles**: al acabar tu turno, «Copiar enlace del turno» y se lo mandas; el
