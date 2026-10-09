@@ -86,3 +86,6 @@ bbweb/
 - [ADR 001](docs/design/adr-001-multijugador-por-enlace.md) — el enlace como transporte.
 - [ADR 002](docs/design/adr-002-nombres-separados-del-motor.md) — nombres fuera del motor.
 - [Fuentes](docs/discovery/sources.md) — de dónde sale cada dato y los desempates.
+- [Escenarios](docs/design/escenarios.md) — la matriz de verificación: cada escenario
+  del juego, su orden canónico, quién decide y su estado.
+- [FFB como oráculo](docs/discovery/ffb.md) — por qué no portamos FUMBBL y cómo minarlo.

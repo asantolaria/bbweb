@@ -251,15 +251,19 @@ export function placar(estado, atacanteId, objetivoId, { azar, blitz = false, op
   });
 
   // Luchador: en Placaje declarado (no Penetración) puede repetir UN «Ambos derribados».
+  let luchadorUsado = false;
   if (!blitz && tiene(A.hab, 'brawler') && resultados.includes('both_down')) {
+    luchadorUsado = true;
     const i = resultados.indexOf('both_down');
     const nuevo = tirarDados(1, azar)[0];
     anotar(estado, 'luchador', { atacante: A.id, de: 'both_down', a: nuevo });
     resultados = resultados.map((r, k) => (k === i ? nuevo : r));
   }
 
-  // Reroll de equipo: repite TODOS los dados del grupo.
-  if (opciones.alFallar?.('placaje', { resultados, fuerzas: f })) {
+  // Reroll de equipo: repite TODOS los dados del grupo… salvo que Luchador ya repitiera
+  // uno — «si un Reroll permite repetir un dado de un grupo, no se puede usar otra
+  // fuente para repetir el resto» (fundamentos §6).
+  if (!luchadorUsado && opciones.alFallar?.('placaje', { resultados, fuerzas: f })) {
     const E = estado.equipos[A.equipo];
     if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
     E.rerolls--;

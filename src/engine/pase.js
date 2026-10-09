@@ -92,11 +92,11 @@ export function pase(estado, objetivoX, objetivoY, { azar, opciones = {}, bomba 
 
   let c = chequeo({ objetivo: j.perfil.ps, mods, azar, motivo: `pase (${j.id})` });
   anotar(estado, 'pase', { jugador: j.id, a: [objetivoX, objetivoY], alcance: tipo, chequeo: c });
+  // Nunca se repite una repetición: la habilidad Pasar (gratis) agota el chequeo.
   if (!c.exito && tiene(j.hab, 'pass')) {
     c = chequeo({ objetivo: j.perfil.ps, mods, azar, motivo: `pase (${j.id}, repite por Pasar)` });
     anotar(estado, 'pase_reroll', { jugador: j.id, habilidad: 'pass', chequeo: c });
-  }
-  if (!c.exito && opciones.alFallar?.('pase', c)) {
+  } else if (!c.exito && opciones.alFallar?.('pase', c)) {
     const E = estado.equipos[j.equipo];
     if (E.rerolls <= 0) throw new Error('No quedan rerolls de equipo.');
     E.rerolls--;

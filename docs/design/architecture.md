@@ -120,6 +120,13 @@ E4-S01; `.vercelignore` deja fuera docs, legacy y tests).
 | La pinta de fichas/tablero | CSS de `index.html` + `renderPitch()` |
 | El formato del enlace | `enlace.js` — y SUBIR `VERSION_ESTADO` (rompe enlaces en circulación) |
 
+## El catálogo de escenarios
+
+[`escenarios.md`](escenarios.md) es la matriz de verificación: cada escenario del juego
+con su orden canónico, sus dados, quién decide y su estado de implementación. Toda regla
+nueva entra por ahí. Para dudas finas de interpretación, el oráculo es FFB
+([`docs/discovery/ffb.md`](../discovery/ffb.md)).
+
 ## Decisiones de interpretación anotadas
 
 - **Golpe mortífero**: la elección armadura/heridas se automatiza de forma óptima (si

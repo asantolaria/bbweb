@@ -292,13 +292,13 @@ function esquivar(estado, j, [ox, oy], [dx, dy], { azar, alFallar }) {
   let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id})` });
   anotar(estado, 'esquivar', { jugador: j.id, de: [ox, oy], a: [dx, dy], chequeo: c });
 
-  // La habilidad Esquivar: una repetición de esquiva por turno, antes que el reroll de equipo.
+  // Nunca se repite una repetición (fundamentos §6): la habilidad Esquivar es gratis y
+  // va primero; si se usa, el chequeo queda agotado y el reroll de equipo ya no cabe.
   if (!c.exito && tiene(j.hab, 'dodge') && !a.esquivarUsado) {
     a.esquivarUsado = true;
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, repite por Esquivar)` });
     anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: 'dodge', chequeo: c });
-  }
-  if (!c.exito && alFallar('esquivar', c)) {
+  } else if (!c.exito && alFallar('esquivar', c)) {
     gastarReroll(estado, j.equipo);
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `esquivar (${j.id}, reroll de equipo)` });
     anotar(estado, 'esquivar_reroll', { jugador: j.id, habilidad: null, chequeo: c });
@@ -339,11 +339,11 @@ function recogerBalon(estado, j, { azar, alFallar }) {
 
   let c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger el balón (${j.id})` });
   anotar(estado, 'recoger', { jugador: j.id, chequeo: c });
+  // Nunca se repite una repetición: Manos seguras (gratis) agota el chequeo.
   if (!c.exito && tiene(j.hab, 'sure_hands')) {
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, repite por Manos seguras)` });
     anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: 'sure_hands', chequeo: c });
-  }
-  if (!c.exito && alFallar('recoger', c)) {
+  } else if (!c.exito && alFallar('recoger', c)) {
     gastarReroll(estado, j.equipo);
     c = chequeo({ objetivo: j.perfil.ag, mods, azar, motivo: `recoger (${j.id}, reroll de equipo)` });
     anotar(estado, 'recoger_reroll', { jugador: j.id, habilidad: null, chequeo: c });

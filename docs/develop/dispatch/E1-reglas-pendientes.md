@@ -16,3 +16,4 @@ partidos) queda fuera: esto es solo lo que falta.
 - E1-S04 Atento al balón (On the Ball)
 - E1-S05 Apuñalar y Vómito como placaje de Penetración
 - E1-S06 Prórroga y penaltis
+- E1-S07 Solitario (X+) al usar rerolls de equipo
