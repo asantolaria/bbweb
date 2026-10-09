@@ -74,6 +74,8 @@ bbweb/
 │   └── enlace.js         la partida dentro de la URL
 ├── test/                 125 tests (node --test, cero dependencias)
 ├── docs/                 PRD, arquitectura, ADRs, fuentes y backlog
+│   └── develop/dispatch/ el plan: 5 épicas y 23 historias (E1 reglas pendientes,
+│                         E2 experiencia móvil, E3 la IA, E4 operaciones, E5 contenido)
 └── legacy/mesa-v0.html   la mesa original sin motor (histórico, autocontenida)
 ```
 
