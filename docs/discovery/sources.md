@@ -44,3 +44,21 @@ falta el reglamento; la app solo lleva la cuenta.
 
 Las estadísticas conviene revisarlas contra la edición concreta que uséis: la app apunta a
 **Season 3 (2025)**.
+
+## Regla de nombres (2026-10-09)
+
+**Los nombres visibles en la app son EXACTAMENTE los del repo de rosters** — tablas
+«Roster» de `source/teams/*.md` para posicionales y tablas ES|EN de
+`source/habilidades/*.md` para habilidades. Ni una traducción propia: una «mejora»
+bienintencionada es deriva. Lo vigila `test/nombres.test.js` con un fixture congelado;
+si el repo cambia un nombre, fixture y `nombres.es.js` se actualizan en el mismo commit.
+
+Inconsistencias internas del repo detectadas en la auditoría (se respetan tal cual aquí;
+pendientes de unificar ALLÍ):
+
+- **Ogre/Ogro**: `source/teams/humanos.md` y `nobleza-imperial.md` dicen «Ogre», pero
+  `rosters/iniciales/inicio-1000k-humanos-1000k.md` dice «Ogro» (y el desglose de
+  Nobleza, «Ogre»). Criterio adoptado: mandan las tablas de `source/teams/`.
+- **«Linemen»** (plural) en el roster skaven, donde el resto usa singular.
+- **«Guerrero Caos»** (sin «del») en elegidos-del-caos.md; otras páginas escriben
+  «Guerrero del Caos».

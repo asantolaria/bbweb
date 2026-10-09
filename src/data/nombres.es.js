@@ -14,33 +14,39 @@ export const EQUIPOS_ES = {
 };
 
 export const POSICIONES_ES = {
+  // Nombres EXACTOS de las tablas «Roster» de source/teams/*.md en bloodbowl-my-rosters
+  // (instrucción del entrenador, 2026-10-09: ni una traducción propia). Las
+  // inconsistencias internas del repo (Ogre/Ogro, «Linemen» en plural) se respetan tal
+  // cual y están señaladas en docs/discovery/sources.md para unificarlas allí.
   human_lineman: 'Línea', human_halfling: 'Halfling', human_catcher: 'Catcher',
-  human_thrower: 'Thrower', human_blitzer: 'Blitzer', human_ogre: 'Ogro',
+  human_thrower: 'Thrower', human_blitzer: 'Blitzer', human_ogre: 'Ogre',
 
-  high_elf_lineman: 'Línea', high_elf_thrower: 'Príncipe Fénix (Thrower)',
-  high_elf_blitzer: 'León Blanco (Blitzer)', high_elf_dragon_warrior: 'Guerrero Dragón',
+  high_elf_lineman: 'Alto Elfo Línea',
+  high_elf_thrower: 'Alto Elfo Phoenix Prince Thrower',
+  high_elf_blitzer: 'Alto Elfo White Lion Blitzer',
+  high_elf_dragon_warrior: 'Alto Elfo Dragon Warrior',
 
-  chaos_beastman: 'Beastman', chaos_warrior: 'Guerrero del Caos',
+  chaos_beastman: 'Beastman', chaos_warrior: 'Guerrero Caos',
   chaos_troll: 'Troll del Caos', chaos_ogre: 'Ogro del Caos', chaos_minotaur: 'Minotauro',
 
-  lizardmen_skink: 'Eslizón', lizardmen_chameleon: 'Camaleón',
+  lizardmen_skink: 'Eslizón Línea', lizardmen_chameleon: 'Camaleón',
   lizardmen_saurus: 'Saurio', lizardmen_kroxigor: 'Kroxigor',
 
-  undead_skeleton: 'Esqueleto', undead_zombie: 'Zombi', undead_ghoul: 'Necrófago',
+  undead_skeleton: 'Esqueleto', undead_zombie: 'Zombie', undead_ghoul: 'Necrófago',
   undead_wight: 'Caballero', undead_mummy: 'Momia',
 
-  imperial_retainer: 'Retainer (Línea)', imperial_thrower: 'Thrower Imperial',
-  imperial_blitzer: 'Blitzer Noble', imperial_bodyguard: 'Guardaespaldas',
-  imperial_ogre: 'Ogro',
+  imperial_retainer: 'Retainer Línea', imperial_thrower: 'Imperial Thrower',
+  imperial_blitzer: 'Noble Blitzer', imperial_bodyguard: 'Bodyguard',
+  imperial_ogre: 'Ogre',
 
-  black_orc_goblin: 'Goblin', black_orc_blocker: 'Orco Negro',
+  black_orc_goblin: 'Goblin Bruiser', black_orc_blocker: 'Black Orc',
   black_orc_troll: 'Troll Adiestrado',
 
-  skaven_lineman: 'Línea', skaven_thrower: 'Thrower', skaven_gutter_runner: 'Corredor',
+  skaven_lineman: 'Linemen', skaven_thrower: 'Thrower', skaven_gutter_runner: 'Gutter Runner',
   skaven_blitzer: 'Blitzer', skaven_rat_ogre: 'Rata Ogro',
 
-  elven_union_lineman: 'Línea', elven_union_thrower: 'Lanzador',
-  elven_union_catcher: 'Catcher', elven_union_blitzer: 'Blitzer',
+  elven_union_lineman: 'Elfo Línea', elven_union_thrower: 'Elfo Lanzador',
+  elven_union_catcher: 'Elfo Catcher', elven_union_blitzer: 'Elfo Blitzer',
 };
 
 /** Abreviatura para la ficha del tablero. */
