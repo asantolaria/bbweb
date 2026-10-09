@@ -66,10 +66,54 @@ export async function desempaquetar(carga) {
   }
 }
 
+/**
+ * El tramo del registro que el receptor del enlace no ha visto: desde el primer
+ * marcador de turno RIVAL del tramo final (tras el último turno propio del receptor)
+ * hasta el final. Es a la vez el recorte del enlace y el guion de la repetición.
+ */
+export function tramoRival(registro, nombreReceptor) {
+  if (!registro?.length) return [];
+  let inicio = -1;
+  let finalVisto = false;
+  for (let i = registro.length - 1; i >= 0; i--) {
+    const ev = registro[i];
+    if (ev.tipo !== 'turno') continue;
+    if (ev.equipo === nombreReceptor) {
+      // El último marcador es el turno NUEVO del receptor: se salta; el siguiente hacia
+      // atrás es su turno anterior, donde dejó de mirar.
+      if (!finalVisto && i === registro.map((x) => x.tipo).lastIndexOf('turno')) { finalVisto = true; continue; }
+      break;
+    }
+    inicio = i;
+  }
+  return inicio === -1 ? [] : registro.slice(inicio);
+}
+
+/** Tope de eventos que viajan en el enlace (≈16 caracteres comprimidos por evento). */
+export const MAX_EVENTOS_ENLACE = 150;
+
+/**
+ * Copia del estado con el registro recortado para viajar: el tramo que el rival no ha
+ * visto (más un pequeño colchón), nunca más de MAX_EVENTOS_ENLACE. El historial
+ * completo se queda en el dispositivo del que envía; el campo `registroRecortado`
+ * avisa de cuántos eventos se quedaron atrás.
+ */
+export function recortarParaEnlace(estado) {
+  const reg = estado.registro ?? [];
+  if (reg.length <= MAX_EVENTOS_ENLACE) return estado;
+  const nombreReceptor = estado.equipos?.[estado.activo]?.nombre;
+  const tramo = tramoRival(reg, nombreReceptor);
+  // Se conserva el tramo rival entero (o una cola de cortesía si no lo hay), sin
+  // superar nunca el tope: manda el más cercano al final de los dos puntos de corte.
+  const inicioTramo = tramo.length ? reg.indexOf(tramo[0]) : reg.length - 40;
+  const inicio = Math.max(0, reg.length - MAX_EVENTOS_ENLACE, Math.min(inicioTramo, reg.length));
+  return { ...estado, registro: reg.slice(inicio), registroRecortado: inicio };
+}
+
 /** Construye el enlace que se le pasa al rival. */
 export async function aEnlace(estado, base) {
   const url = new URL(base);
-  url.hash = `g=${await empaquetar(estado)}`;
+  url.hash = `g=${await empaquetar(recortarParaEnlace(estado))}`;
   return url.toString();
 }
 

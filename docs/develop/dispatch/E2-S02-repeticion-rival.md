@@ -1,6 +1,6 @@
 # E2-S02: Repetición de la jugada rival al abrir un enlace
 
-## Status: To Do
+## Status: Done (2026-10-09)
 ## Epic: E2 — Experiencia de juego en el móvil
 ## Priority: Alta (el corazón del juego por enlace)
 
@@ -11,9 +11,12 @@ el último turno propio («el Blitzer te placó: ¡POW!, tu línea KO…»). El 
 enlace lleva el registro completo: solo hay que recortarlo y narrarlo.
 
 ## Acceptance Criteria
-- [ ] Al cargar de enlace: resumen paginado de lo ocurrido desde tu último turno
-- [ ] Salto directo opcional («Saltar al tablero»)
-- [ ] Sin crecimiento del enlace por encima del límite práctico (medir)
+- [x] Al cargar de enlace: «Mientras no mirabas…», tarjetas paginadas del tramo rival
+      (turnos, placajes, tiradas, KO, apotecario) y luego el intersticial de relevo
+- [x] «Saltar al tablero» en repeticiones de 3+ tarjetas
+- [x] Medido: el registro completo de un partido inflaba el enlace a 6.922 caracteres.
+      recortarParaEnlace() lo limita al tramo rival (tope 150 eventos): un final de
+      partido del bot cabe en < 4.500 y un turno típico en ~1.600 (test)
 
 ## Tasks
 (Por refinar con /hive:plan)

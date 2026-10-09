@@ -28,7 +28,7 @@ import {
   patada, moverEnEvento, terminarEvento, recepcionLibre, terminarTurno, comprobarTouchdown,
   TABLA_PATADA,
 } from '../engine/secuencia.js';
-import { aEnlace, desdeEnlace } from '../enlace.js';
+import { aEnlace, desdeEnlace, tramoRival } from '../enlace.js';
 
 const KEY = 'bbweb-v1';
 const $ = (id) => document.getElementById(id);
@@ -308,7 +308,7 @@ const ICONO_EVENTO = {
 };
 
 /** Convierte los eventos de una acción en tarjetas grandes; decide si merecen modal. */
-function prepararResultados(eventos) {
+function prepararResultados(eventos, { repeticion = false } = {}) {
   const tarjetas = [];
   const nombre = (id) => (E.jugadores[id] ? etiqueta(E.jugadores[id]) : id);
   const cheq = (c) => ({
@@ -392,6 +392,15 @@ function prepararResultados(eventos) {
       case 'patada':
         tarjetas.push({ icono: '🦵', titulo: 'Patada', dados: [ev.d6, ev.d8], detalle: `Se desvía ${ev.d6} casillas` });
         break;
+      case 'turno':
+        if (repeticion) tarjetas.push({ icono: '⏱️', titulo: `Turno ${ev.numero} de ${ev.equipo}`, detalle: `Parte ${ev.mitad}` });
+        break;
+      case 'recuperacion_ko':
+        if (repeticion) tarjetas.push({ icono: ev.vuelve ? '🏥✅' : '🏥', titulo: `${nombre(ev.jugador)} ${ev.vuelve ? 'se recupera del KO' : 'sigue KO'}`, dados: [ev.d6], detalle: '' });
+        break;
+      case 'apotecario':
+        if (repeticion) tarjetas.push({ icono: '🧪', titulo: 'Apotecario', detalle: ev.efecto });
+        break;
       case 'evento_patada':
         tarjetas.push({ icono: '📯', titulo: EVENTO_ES[ev.evento] ?? ev.evento, dados: ev.dados, detalle: '' });
         break;
@@ -401,9 +410,10 @@ function prepararResultados(eventos) {
   const conChicha = eventos.some((e) =>
     ['placaje_resultado', 'armadura', 'heridas', 'pase', 'intercepcion', 'lanzamiento',
       'touchdown', 'asegurar', 'apunalar', 'vomito', 'devorado', 'entrega'].includes(e.tipo));
-  if (tarjetas.length && conChicha) {
+  if (tarjetas.length && (conChicha || repeticion)) {
     ui.resultado = tarjetas;
     ui.resultadoIdx = 0;
+    ui.resultadoTitulo = repeticion ? 'Mientras no mirabas…' : 'Resultado';
     ui.hoja = 'resultado';
   }
 }
@@ -663,7 +673,10 @@ async function act(el) {
     }
     case 'res_sig':
       ui.resultadoIdx++;
-      if (ui.resultadoIdx >= (ui.resultado?.length ?? 0)) { ui.hoja = null; ui.resultado = null; ui.resultadoIdx = 0; }
+      if (ui.resultadoIdx >= (ui.resultado?.length ?? 0)) { ui.hoja = null; ui.resultado = null; ui.resultadoIdx = 0; ui.resultadoTitulo = null; }
+      render(); return;
+    case 'res_fin':
+      ui.hoja = null; ui.resultado = null; ui.resultadoIdx = 0; ui.resultadoTitulo = null;
       render(); return;
     case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; ui.preview = null; await ejecutar((azar) => terminarAccion(E, { azar })); return;
     case 'fin_turno':
@@ -1128,7 +1141,7 @@ function renderHoja() {
     const t = ui.resultado?.[ui.resultadoIdx];
     if (!t) { ui.hoja = null; wrap.hidden = true; return; }
     const ultimo = ui.resultadoIdx === ui.resultado.length - 1;
-    sheet.innerHTML = head('Resultado', false) + `
+    sheet.innerHTML = head(esc(ui.resultadoTitulo || 'Resultado'), false) + `
       <div class="res-icono">${t.icono}</div>
       <div class="res-titulo">${esc(t.titulo)}</div>` +
       (t.dadosTexto ? `<div class="res-dados">${t.dadosTexto.map((d) => `<div class="res-dado" style="font-size:.62rem;padding:2px;text-align:center">${esc(d)}</div>`).join('')}</div>` : '') +
@@ -1137,7 +1150,8 @@ function renderHoja() {
       (t.detalle ? `<p class="res-mods">${esc(t.detalle)}</p>` : '') +
       (t.mods?.length ? `<p class="res-mods">${esc(t.mods.join(' · '))}</p>` : '') + `
       <div class="res-paso">${ui.resultadoIdx + 1} de ${ui.resultado.length}</div>
-      <div class="row"><button class="primary" data-act="res_sig">${ultimo ? 'Listo' : 'Siguiente →'}</button></div>`;
+      <div class="row"><button class="primary" data-act="res_sig">${ultimo ? 'Listo' : 'Siguiente →'}</button></div>` +
+      (ultimo || ui.resultado.length < 3 ? '' : `<div class="row"><button class="primary" style="background:var(--btn);color:var(--ink)" data-act="res_fin">Saltar al tablero</button></div>`);
     return;
   }
   if (ui.hoja === 'apotecario') {
@@ -1221,7 +1235,10 @@ async function boot() {
       E = deEnlace;
       history.replaceState(null, '', location.pathname + location.search);
       guardar();
-      toast('Partida cargada del enlace.');
+      // La repetición: lo que pasó desde tu último turno, narrado en tarjetas.
+      const tramo = tramoRival(E.registro, E.equipos?.[E.activo]?.nombre);
+      if (tramo.length > 1) prepararResultados(tramo, { repeticion: true });
+      else toast('Partida cargada del enlace.');
       render();
       return;
     }

@@ -77,3 +77,36 @@ test('el enlace se puede volver a leer desde la URL completa', async () => {
   const recuperado = await desdeEnlace(await aEnlace(antes, 'https://bbweb.example/'));
   assert.deepEqual(recuperado, antes);
 });
+
+test('el enlace recorta el registro al tramo que el rival no ha visto', async () => {
+  const { tramoRival, recortarParaEnlace, MAX_EVENTOS_ENLACE } = await import('../src/enlace.js');
+  // Registro sintético: turno mío → mis cosas → turno rival → sus cosas → mi turno nuevo.
+  const reg = [
+    { tipo: 'turno', equipo: 'Míos', numero: 2 },
+    { tipo: 'esquivar', jugador: 'a1' }, { tipo: 'touchdown', equipo: 'Míos' },
+    { tipo: 'turno', equipo: 'Rivales', numero: 2 },
+    { tipo: 'placaje', atacante: 'b1', objetivo: 'a2' }, { tipo: 'armadura', jugador: 'a2' },
+    { tipo: 'turno', equipo: 'Rivales', numero: 3 },   // celebración: dos turnos seguidos
+    { tipo: 'pase', jugador: 'b3' },
+    { tipo: 'turno', equipo: 'Míos', numero: 3 },      // mi turno nuevo (lo marca el enlace)
+  ];
+  const tramo = tramoRival(reg, 'Míos');
+  assert.equal(tramo[0].numero, 2, 'arranca en el PRIMER turno rival del tramo');
+  assert.equal(tramo.length, 6, 'los dos turnos rivales y mi marcador nuevo');
+
+  // Un registro kilométrico queda acotado y con la marca de recorte.
+  const estado = { activo: 0, equipos: [{ nombre: 'Míos' }, { nombre: 'Rivales' }],
+    registro: Array.from({ length: 900 }, (_, i) => ({ tipo: 'esquivar', i })) };
+  const r = recortarParaEnlace(estado);
+  assert.equal(r.registro.length, 40, 'sin marcador rival: cola de cortesía, no el tope');
+  assert.equal(r.registroRecortado, 860);
+  assert.ok(MAX_EVENTOS_ENLACE >= 40);
+});
+
+test('un enlace de final de partido del bot cabe en mensajería', async () => {
+  const { jugarPartido } = await import('../src/bot/bot-aleatorio.js');
+  const { aEnlace } = await import('../src/enlace.js');
+  const e = jugarPartido('human', 'black_orc', 7919);
+  const enlace = await aEnlace(e, 'https://bbweb-umber.vercel.app/');
+  assert.ok(enlace.length < 4500, `mide ${enlace.length}`);
+});
