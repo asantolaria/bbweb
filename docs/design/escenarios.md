@@ -38,6 +38,11 @@ Leyenda de decisores: **A** = entrenador activo · **D** = entrenador defensor/i
 
 ### 2.7 · Las 11 causas de cambio de turno (fundamentos §6)
 
+> **Suite canónica: `test/turnovers.test.js`** — un test por causa, con su número, más
+> la excepción de la causa 6 (rebote salvado por un compañero), el caso de la cadena
+> que manda a un propio al público, la mordida de Ferocidad animal al portador y el
+> control negativo (derribar al portador rival NO es turnover).
+
 | Causa | Estado |
 |---|---|
 | 1. Jugador activo se cae en su activación | ✔ |
