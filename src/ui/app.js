@@ -371,6 +371,13 @@ function prepararResultados(eventos) {
       case 'touchdown':
         tarjetas.push({ icono: '🏆', titulo: `¡TOUCHDOWN de ${ev.equipo}!`, detalle: `Marcador ${ev.marcador.join(' – ')}` });
         break;
+      case 'stalling':
+        tarjetas.push({
+          icono: '🪨', titulo: ev.acierta ? '¡El público lanza una piedra!' : 'El público gruñe… y falla',
+          dados: [ev.d6], exito: !ev.acierta,
+          detalle: `Hacía tiempo pudiendo anotar: 1D6 ≥ turno ${ev.turno}`,
+        });
+        break;
       case 'solitario':
         tarjetas.push({
           icono: '🐺', titulo: `Solitario ${ev.objetivo}+ — ${nombre(ev.jugador)}`,
@@ -533,6 +540,7 @@ async function tapCell(x, y) {
     ui.preview = { tipo: 'placar', atacante: yo.id, objetivo: j.id, blitz: false };
     render(); return;
   }
+  // (la piedra de Stalling se tira dentro de terminarAccion, con el azar del replay)
   if (j && a.accion === 'foul' && j.equipo !== yo.equipo && sonAdyacentes(yo.x, yo.y, j.x, j.y)) {
     await ejecutar((azar, decidir) => falta(E, j.id, { azar, opciones: opcionesMotor(decidir) }));
     return;
@@ -636,7 +644,7 @@ async function act(el) {
       const p = ui.preview; ui.preview = null;
       if (!p) return;
       if (p.blitz) await ejecutar((azar, decidir) => placarEnPenetracion(E, { azar, opciones: opcionesMotor(decidir) }));
-      else await ejecutar((azar, decidir) => { placar(E, p.atacante, p.objetivo, { azar, opciones: opcionesMotor(decidir) }); terminarAccion(E); });
+      else await ejecutar((azar, decidir) => { placar(E, p.atacante, p.objetivo, { azar, opciones: opcionesMotor(decidir) }); terminarAccion(E, { azar }); });
       return;
     }
     case 'pase_go': {
@@ -655,7 +663,7 @@ async function act(el) {
       ui.resultadoIdx++;
       if (ui.resultadoIdx >= (ui.resultado?.length ?? 0)) { ui.hoja = null; ui.resultado = null; ui.resultadoIdx = 0; }
       render(); return;
-    case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; ui.preview = null; await ejecutar(() => terminarAccion(E)); return;
+    case 'fin_activacion': ui.sel = null; ui.modo = null; ui.ttmCompanero = null; ui.preview = null; await ejecutar((azar) => terminarAccion(E, { azar })); return;
     case 'fin_turno':
       ui.sel = null; ui.modo = null; ui.preview = null;
       await ejecutar((azar) => terminarTurno(E, { azar }));

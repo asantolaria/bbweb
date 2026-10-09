@@ -4,13 +4,14 @@
 // Fuente: source/tablas/acciones-y-modificadores.md («Acciones», «Movimiento»)
 // y los rasgos negativos de source/habilidades/rasgos.md.
 
-import { tirar, chequeo } from './dice.js';
+import { tirar, chequeo, azarReal } from './dice.js';
 import { enCampo, sonAdyacentes } from './tablero.js';
 import { jugador, enCasilla, marcadoresDe, estaMarcado, anotar, tieneZonaDefensa } from './partido.js';
 import { tiene } from '../data/habilidades.js';
 import { resolverSuelo } from './derribo.js';
 import { rebotar } from './balon.js';
 import { usarRerollEquipo } from './rerolls.js';
+import { filaAnotacion } from './tablero.js';
 
 /** Acciones limitadas a 1 por turno de equipo. */
 const UNA_POR_TURNO = new Set(['blitz', 'pass', 'handoff', 'foul', 'ttm', 'secure']);
@@ -66,6 +67,9 @@ export function activar(estado, jugadorId, accion, { azar, companeroObjetivo = n
   estado.activacion = {
     jugador: jugadorId, accion, objetivoBlitz: objetivo,
     mvGastado: 0, rushUsados: 0, esquivarUsado: false, placajeHecho: false, terminada: false,
+    // Stalling: la condición se evalúa AL ACTIVARSE (como FFB StallingExtension) y la
+    // piedra se tira al terminar la activación si sigue siendo culpable.
+    vigiladoPorStalling: puedeAnotarSinDados(estado, j),
   };
   anotar(estado, 'activacion', { jugador: jugadorId, accion, objetivo });
 
@@ -149,9 +153,10 @@ export function terminarActivacion(estado) {
 
 /**
  * Cierra la activación por decisión del entrenador. Una acción de Asegurar el balón
- * que no termina en la casilla del balón es cambio de turno.
+ * que no termina en la casilla del balón es cambio de turno, y un portador que podía
+ * anotar gratis y no lo hizo se expone a la piedra del público.
  */
-export function terminarAccion(estado) {
+export function terminarAccion(estado, { azar = azarReal } = {}) {
   const a = estado.activacion;
   if (!a) return;
   if (a.accion === 'secure') {
@@ -161,6 +166,7 @@ export function terminarAccion(estado) {
       estado.turnover = { causa: 'asegurar_incumplido' };
     }
   }
+  piedraDelPublico(estado, { azar });
   terminarActivacion(estado);
 }
 
@@ -198,6 +204,77 @@ export function levantarse(estado, { azar } = {}) {
  * `alFallar(tipo, chequeo)` → true para repetir con reroll de equipo (lo decide la capa
  * de turno o la UI); las repeticiones de habilidad (Esquivar) se aplican solas.
  */
+/**
+ * ¿Puede este jugador anotar sin tirar NINGÚN dado? (la condición de Stalling)
+ *
+ * Criterios (FFB StallingExtension, BB2025): lleva el balón, está de pie, no tiene
+ * rasgos que tiren al activarse (Estúpido y familia), NO está marcado en su casilla,
+ * y existe un camino hasta la zona de anotación dentro de su MV —sin Forzar la
+ * marcha— cuyas casillas intermedias están libres y sin marcar (salir de ellas no
+ * exigiría esquivar). La casilla final de la zona puede estar marcada: se anota al
+ * entrar. Fuente: secuencia-de-partido.md §3 + oráculo FFB.
+ */
+export function puedeAnotarSinDados(estado, j) {
+  if (estado.balon?.portador !== j.id) return false;
+  if (j.situacion !== 'campo' || j.postura !== 'de_pie') return false;
+  const RASGOS_DE_ACTIVACION = ['bone_head', 'really_stupid', 'animal_savagery', 'unchannelled_fury'];
+  if (RASGOS_DE_ACTIVACION.some((r) => tiene(j.hab, r))) return false;
+  if (estaMarcado(estado, j)) return false;
+
+  const meta = filaAnotacion(j.equipo);
+  if (j.y === meta) return false; // ya está dentro: eso es anotar, no hacer tiempo
+
+  // BFS por casillas libres y sin marcar, a lo sumo MV pasos.
+  const vistos = new Set([`${j.x},${j.y}`]);
+  let frontera = [[j.x, j.y]];
+  for (let paso = 1; paso <= j.perfil.mv; paso++) {
+    const siguiente = [];
+    for (const [x, y] of frontera) {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        const clave = `${nx},${ny}`;
+        if (!enCampo(nx, ny) || vistos.has(clave) || enCasilla(estado, nx, ny)) continue;
+        if (ny === meta) return true; // entrar en la zona anota, aunque esté marcada
+        if (marcadoresDe(estado, j.equipo, nx, ny).length) continue; // salir exigiría esquivar
+        vistos.add(clave);
+        siguiente.push([nx, ny]);
+      }
+    }
+    frontera = siguiente;
+    if (!frontera.length) break;
+  }
+  return false;
+}
+
+/**
+ * La piedra del público («el público actúa»). Se tira al cerrar la activación de un
+ * portador vigilado que sigue con el balón, de pie y sin anotar: 1D6 ≥ número de turno
+ * → derribado (armadura y heridas) y cambio de turno. A partir del turno 7 el D6 ya no
+ * alcanza y no se tira (atajo del oráculo FFB). Reroll de equipo: prohibido.
+ */
+function piedraDelPublico(estado, { azar }) {
+  const a = estado.activacion;
+  if (!a?.vigiladoPorStalling) return;
+  const j = jugador(estado, a.jugador);
+  if (estado.balon?.portador !== j.id) return;                 // se deshizo del balón
+  if (j.situacion !== 'campo' || j.postura !== 'de_pie') return;
+  if (j.y === filaAnotacion(j.equipo)) return;                 // anotó
+  if (estado.turnover) return;                                 // el turno ya se rompió
+
+  const turno = estado.equipos[j.equipo].turno;
+  if (turno > 6) {
+    anotar(estado, 'stalling_sin_piedra', { jugador: j.id, turno });
+    return;
+  }
+  const d = tirar(6, { azar, motivo: `el público actúa (${j.id})` });
+  anotar(estado, 'stalling', { jugador: j.id, turno, d6: d.valor, acierta: d.valor >= turno });
+  if (d.valor >= turno) {
+    const r = resolverSuelo(estado, j, { forma: 'derribado', azar });
+    if (r.final !== 'de_pie') estado.turnover = { causa: 'el_publico_actua' };
+  }
+}
+
 /** Acciones que incluyen movimiento; el resto (Placaje, Apuñalar, Vómito…) no se mueve. */
 const CON_MOVIMIENTO = new Set(['move', 'blitz', 'pass', 'handoff', 'foul', 'secure', 'ttm']);
 

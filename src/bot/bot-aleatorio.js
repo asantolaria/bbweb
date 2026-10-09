@@ -48,7 +48,7 @@ export function turnoBot(e, azar) {
       activar(e, j.id, 'block', { azar });
       if (e.activacion) {
         placar(e, j.id, rival.id, { azar });
-        if (e.activacion) terminarAccion(e);
+        if (e.activacion) terminarAccion(e, { azar });
       }
       comprobarTouchdown(e);
       continue;
@@ -73,7 +73,7 @@ export function turnoBot(e, azar) {
       if (a.mvGastado >= actual.perfil.mv) break; // sin forzar la marcha: el bot es prudente
       paso(e, x, y, { azar });
     }
-    if (e.activacion) terminarAccion(e);
+    if (e.activacion) terminarAccion(e, { azar });
     comprobarTouchdown(e);
   }
   if (e.fase === 'turno') terminarTurno(e, { azar });

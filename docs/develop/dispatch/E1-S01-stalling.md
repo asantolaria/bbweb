@@ -1,6 +1,6 @@
 # E1-S01: Stalling — «el público actúa»
 
-## Status: To Do
+## Status: Done (2026-10-09)
 ## Epic: E1 — Reglas pendientes del motor
 ## Priority: Alta (regla con impacto competitivo real)
 
@@ -12,10 +12,13 @@ rival dentro del MV sin esquivas (ninguna casilla de salida marcada), sin rushes
 y sin tiradas de rasgo pendientes. Fuente: secuencia-de-partido.md §3.
 
 ## Acceptance Criteria
-- [ ] Detector de «anota gratis» con tests de borde (marcajes, MV justo, rasgos)
-- [ ] La tirada se hace al terminar la activación (también al Renunciar)
-- [ ] No aplica si entrega/pasa y acaba sin balón ni si necesita cualquier dado
-- [ ] Reroll de equipo prohibido en esta tirada
+- [x] Detector puedeAnotarSinDados() con los criterios del oráculo FFB (BFS sin
+      marcajes dentro del MV, exclusión de rasgos que tiran al activarse) y tests de
+      borde (muro de zonas, marcado, lejos, Ogro)
+- [x] La piedra se tira en terminarAccion; turno 7+ sin tirada (atajo FFB)
+- [x] Exento si anota o se deshace del balón (test con Dejada)
+- [x] Sin reroll de equipo por construcción (el motor no ofrece alFallar ahí)
+- [ ] Renunciar explícito: la UI no tiene ese botón; cubierto cuando exista
 
 ## Tasks
 (Por refinar con /hive:plan)

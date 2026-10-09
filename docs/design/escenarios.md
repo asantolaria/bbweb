@@ -34,7 +34,7 @@ Leyenda de decisores: **A** = entrenador activo · **D** = entrenador defensor/i
 | 2.3 | Acciones 1/turno | blitz, pass, handoff, foul, ttm, secure — se gastan al declarar, incluso si el rasgo las arruina | ✔ |
 | 2.4 | Acciones con/sin movimiento | mueven: move, blitz, pass, handoff, foul, secure, ttm · no mueven: block, stab, vomit | ✔ (test) |
 | 2.5 | Fin de turno | aturdidos-al-empezar → tumbados; alternancia (con celebración); fin de parte si ambos a 8 | ✔ |
-| 2.6 | Stalling | portador que puede anotar sin dados y no anota → «el público actúa» | ✘ E1-S01 |
+| 2.6 | Stalling | portador que puede anotar sin dados y no anota → «el público actúa»: 1D6 ≥ turno → derribado (turno 7+ sin piedra, atajo FFB) | ✔ |
 
 ### 2.7 · Las 11 causas de cambio de turno (fundamentos §6)
 
@@ -169,7 +169,7 @@ Heridas directas sin derribo: Apuñalar (armadura sin mods) y Proyectil de vómi
 | **Nunca se repite una repetición** — habilidad gratis primero y agota el chequeo; Luchador sobre el grupo veta el reroll de equipo | ✔ **(corregido 2026-10-09: este catálogo lo destapó)** |
 | Reroll de equipo: solo en tu turno; prohibido en dispersión, armadura, heridas, lesiones, saque, soborno, protesta y «el público actúa» | ✔ (por construcción: el motor no ofrece alFallar en esas tiradas) |
 | Reroll de equipo en atrapar/aterrizaje propios | ⚠ legal pero no ofrecido (aterrizaje sí; atrapar no — hueco menor, anotar en E1) |
-| Solitario (X+) al usar reroll de equipo | ✘ ¡no implementado! → **nuevo E1-S07** |
+| Solitario (X+) al usar reroll de equipo | ✔ (helper único usarRerollEquipo; aviso ⚠ en la UI y tarjeta 🐺) |
 | Azar criptográfico en producción, guionizado en tests, semilla en bot | ✔ |
 
 ## 10 · Interacción entre entrenadores
@@ -187,10 +187,10 @@ apotecario (usar + elegir lesión) · elegir diagnóstico · formación · casil
 
 ## 11 · Huecos conocidos, en una lista
 
-E1-S01 Stalling · E1-S02 ¡A la carga! · E1-S03 Perseguir · E1-S04 Atento al balón ·
-E1-S05 especiales en blitz · E1-S06 prórroga · **E1-S07 Solitario en rerolls (nuevo,
-destapado aquí)** · reroll de equipo no ofrecido al atrapar · modo enlace: decisiones
-del ausente (asumido) · E3 entera.
+E1-S02 ¡A la carga! · E1-S03 Perseguir · E1-S04 Atento al balón · E1-S05 especiales en
+blitz · E1-S06 prórroga · reroll de equipo no ofrecido al atrapar · modo enlace:
+decisiones del ausente (asumido) · E3 entera. (E1-S01 Stalling y E1-S07 Solitario:
+cerrados el 2026-10-09.)
 
 ## Método
 
